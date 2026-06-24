@@ -1,0 +1,6 @@
+{
+  "appId": "com.cicidolap.app",
+  "appName": "Cici Dolap",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

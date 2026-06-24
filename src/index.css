@@ -1,0 +1,132 @@
+/* src/index.css - Cici Dolap Özel Stilleri */
+
+/* ============================================
+   🔘 BUTTON STILLERİ
+   ============================================ */
+.btn-pink {
+  background: linear-gradient(135deg, #f472b6, #a78bfa);
+  color: white;
+  border: none;
+  transition: all 0.3s;
+}
+
+.btn-pink:hover {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(167, 139, 250, 0.4);
+  color: white;
+}
+
+.btn-outline-pink {
+  border: 2px solid #a78bfa;
+  color: #a78bfa;
+  background: transparent;
+  transition: all 0.3s;
+}
+
+.btn-outline-pink:hover {
+  background: #f3e8ff;
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+  transform: scale(1.05);
+}
+
+/* ============================================
+   🎨 RENKLER
+   ============================================ */
+.text-pink-600 {
+  color: #ec4899;
+}
+
+.text-purple-600 {
+  color: #8b5cf6;
+}
+
+.bg-pink-50 {
+  background-color: #fdf2f8;
+}
+
+/* ============================================
+   🌟 HERO BÖLÜMÜ
+   ============================================ */
+.hero-gradient {
+  background: linear-gradient(135deg, #fef9f7 0%, #fdf2f8 25%, #f3e8ff 50%, #e0f2fe 75%, #d1fae5 100%);
+  padding: 4rem 0;
+}
+
+/* ============================================
+   📦 ÜRÜN KARTLARI
+   ============================================ */
+.product-card {
+  transition: all 0.3s;
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  background: white;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.product-image {
+  height: 200px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #fdf2f8, #f3e8ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   🏷️ BADGE STILLERİ
+   ============================================ */
+.badge-new {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-like-new {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-used {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-worn {
+  background-color: #fed7aa;
+  color: #9a3412;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ============================================
+   📱 RESPONSIVE
+   ============================================ */
+@media (max-width: 576px) {
+  .hero-gradient {
+    padding: 2rem 0;
+  }
+  .hero-gradient h1 {
+    font-size: 1.8rem;
+  }
+}
