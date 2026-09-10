@@ -6,16 +6,8 @@ import { db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { useFavorites } from '../hooks/useFavorites'
 import { startConversation } from '../chat'
-
-// Telefon numarasını wa.me linki için Türkiye formatına çevirir:
-// "05551234567" / "5551234567" -> "905551234567"
-function toWhatsAppNumber(phone) {
-  const digits = (phone || '').replace(/\D/g, '')
-  if (!digits) return null
-  if (digits.startsWith('90')) return digits
-  if (digits.startsWith('0')) return `90${digits.slice(1)}`
-  return `90${digits}`
-}
+import { nameOrEmail } from '../utils'
+import { CONTACT_PREF, fetchListingPhone, formatPhone, telHref } from '../contact'
 
 function ProductDetail({ user }) {
   const { id } = useParams()
@@ -27,6 +19,8 @@ function ProductDetail({ user }) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [soldUpdating, setSoldUpdating] = useState(false)
+  const [revealedPhone, setRevealedPhone] = useState('')
+  const [phoneLoading, setPhoneLoading] = useState(false)
 
   useEffect(() => {
     fetchProduct()
@@ -84,6 +78,25 @@ function ProductDetail({ user }) {
     }
   }
 
+  const handleRevealPhone = async () => {
+    if (!user) {
+      alert('Telefon numarasını görmek için lütfen giriş yapın!')
+      return
+    }
+    setPhoneLoading(true)
+    try {
+      // Yeni model: numara listingContacts'te. Eski ilanlarda doc'ta olabilir.
+      const phone = (await fetchListingPhone(product.id)) || product.phone || ''
+      if (phone) {
+        setRevealedPhone(phone)
+      } else {
+        alert('Bu ilan için telefon numarası bulunamadı.')
+      }
+    } finally {
+      setPhoneLoading(false)
+    }
+  }
+
   const handleToggleSold = async () => {
     setSoldUpdating(true)
     try {
@@ -120,7 +133,12 @@ function ProductDetail({ user }) {
   }
 
   const isOwnerOrAdmin = user && (user.uid === product.userId || user.email === ADMIN_EMAIL)
-  const whatsAppNumber = toWhatsAppNumber(product.phone)
+  const isBuyer = user && user.uid !== product.userId
+  // İlan sahibi telefonu paylaşmayı seçmiş mi? Yeni alan "contactPref";
+  // eski ilanlarda alan yoksa ama "phone" varsa paylaşılmış sayılıyor.
+  const phoneOffered = product.contactPref
+    ? product.contactPref === CONTACT_PREF.PHONE
+    : Boolean(product.phone)
 
   return (
     <div className="container py-4">
@@ -193,30 +211,40 @@ function ProductDetail({ user }) {
             <hr />
 
             <h6 className="fw-bold">📞 İletişim</h6>
-            {/* İletişim bilgileri artık sadece giriş yapmış kullanıcılara
-                gösteriliyor. Eskiden telefon/e-posta giriş yapmamış herkese
-                (arama motorları dahil) açıktı — spam/scraping riski
-                taşıyordu. */}
-            {user ? (
-              <>
-                <p className="text-muted mb-1">📱 {product.phone || 'Belirtilmemiş'}</p>
-                <p className="text-muted small mb-2">👤 {product.userEmail || 'Belirtilmemiş'}</p>
-                {whatsAppNumber && user.uid !== product.userId && (
-                  <a
-                    href={`https://wa.me/${whatsAppNumber}?text=${encodeURIComponent(`Merhaba, Cici Dolap'ta "${product.title}" ilanınla ilgileniyorum.`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline-pink btn-sm rounded-pill"
-                  >
-                    💬 WhatsApp'tan Yaz
-                  </a>
-                )}
-              </>
+            <p className="text-muted mb-2">👤 {nameOrEmail(product.userName, product.userEmail)}</p>
+
+            {/* KVKK: e-posta adresi asla gösterilmiyor. Telefon yalnızca
+                ilan sahibi açık rıza verdiyse ve alıcı giriş yaptıysa,
+                "Telefonu Göster" tıklamasıyla açılıyor. */}
+            {!user ? (
+              <p className="text-muted small mb-0">
+                🔒 İletişim seçeneklerini görmek için <Link to="/login" className="text-pink-600 fw-bold">giriş yap</Link>.
+              </p>
+            ) : !isBuyer ? (
+              <p className="text-muted small mb-0">Bu senin ilanın.</p>
+            ) : phoneOffered ? (
+              revealedPhone ? (
+                <a href={telHref(revealedPhone)} className="btn btn-outline-pink btn-sm rounded-pill">
+                  📞 {formatPhone(revealedPhone)}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRevealPhone}
+                  disabled={phoneLoading}
+                  className="btn btn-outline-pink btn-sm rounded-pill"
+                >
+                  {phoneLoading ? 'Yükleniyor...' : '📞 Telefonu Göster'}
+                </button>
+              )
             ) : (
               <p className="text-muted small mb-0">
-                🔒 İletişim bilgilerini görmek için <Link to="/login" className="text-pink-600 fw-bold">giriş yap</Link>.
+                Bu satıcı yalnızca uygulama içi mesajla iletişim kuruyor. 👇
               </p>
             )}
+            <p className="text-muted mt-2 mb-0" style={{ fontSize: '0.78rem' }}>
+              İletişim bilgileri <Link to="/gizlilik" className="text-muted text-decoration-underline">KVKK</Link> kapsamında korunur.
+            </p>
 
             <hr />
 

@@ -2,14 +2,20 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { updateProfile } from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { deleteProductImage } from '../imageUpload'
+import { removeListingPhone } from '../contact'
+import { displayName } from '../utils'
 
 function Profile({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [updatingId, setUpdatingId] = useState(null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -42,6 +48,7 @@ function Profile({ user }) {
     const product = products.find((p) => p.id === id)
     try {
       await deleteDoc(doc(db, 'products', id))
+      removeListingPhone(id) // varsa iletişim kaydını da sil (KVKK)
       setProducts(products.filter(p => p.id !== id))
       setMessage('✅ Ürün başarıyla silindi!')
       setTimeout(() => setMessage(''), 3000)
@@ -59,6 +66,30 @@ function Profile({ user }) {
     } catch (error) {
       console.error('Silme hatası:', error)
       setMessage('❌ Ürün silinirken hata oluştu.')
+    }
+  }
+
+  const startEditName = () => {
+    setNameInput(auth.currentUser?.displayName || '')
+    setEditingName(true)
+  }
+
+  const handleSaveName = async (e) => {
+    e.preventDefault()
+    const trimmed = nameInput.trim()
+    if (trimmed.length < 2) {
+      setMessage('❌ İsim en az 2 karakter olmalı.')
+      return
+    }
+    setSavingName(true)
+    try {
+      await updateProfile(auth.currentUser, { displayName: trimmed })
+      // Yeni isim uygulama genelinde görünsün diye sayfayı yeniliyoruz.
+      window.location.reload()
+    } catch (error) {
+      console.error('İsim güncellenemedi:', error)
+      setMessage('❌ İsim güncellenirken hata oluştu.')
+      setSavingName(false)
     }
   }
 
@@ -96,8 +127,38 @@ function Profile({ user }) {
       <div className="card shadow-sm p-4 mb-4">
         <div className="d-flex flex-wrap justify-content-between align-items-center">
           <div>
-            <h1 className="fw-bold text-pink-600">👤 Profilim</h1>
-            <p className="text-muted mb-0">{user.email}</p>
+            {editingName ? (
+              <form onSubmit={handleSaveName} className="d-flex align-items-center gap-2 mb-1">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  style={{ maxWidth: '220px' }}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Adın"
+                  autoFocus
+                />
+                <button type="submit" className="btn btn-pink btn-sm rounded-pill px-3" disabled={savingName}>
+                  {savingName ? '...' : 'Kaydet'}
+                </button>
+                <button type="button" className="btn btn-link btn-sm text-muted p-0" onClick={() => setEditingName(false)}>
+                  Vazgeç
+                </button>
+              </form>
+            ) : (
+              <h1 className="fw-bold text-pink-600 d-flex align-items-center gap-2">
+                👤 {displayName(user)}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0"
+                  onClick={startEditName}
+                  title="İsmini düzenle"
+                >
+                  ✏️
+                </button>
+              </h1>
+            )}
+            <p className="text-muted mb-0 small">{user.email}</p>
           </div>
           <div className="d-flex gap-2">
             <Link to="/favorites" className="btn btn-outline-pink rounded-pill px-4">
@@ -143,6 +204,8 @@ function Profile({ user }) {
                     <img
                       src={product.imageUrl}
                       alt={product.title}
+                      loading="lazy"
+                      decoding="async"
                       className="img-fluid h-100 object-fit-cover"
                       style={product.sold ? { opacity: 0.55 } : undefined}
                     />

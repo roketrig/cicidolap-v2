@@ -26,6 +26,8 @@ function Conversation({ user }) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
+  const firstScrollRef = useRef(true)
+  const markedMsgIdRef = useRef(null) // son "okundu" yazdığımız mesaj id'si
 
   useEffect(() => {
     if (!user) {
@@ -58,9 +60,23 @@ function Conversation({ user }) {
             orderBy('createdAt', 'asc')
           ),
           (qs) => {
-            setMessages(qs.docs.map((d) => ({ id: d.id, ...d.data() })))
+            const list = qs.docs.map((d) => ({ id: d.id, ...d.data() }))
+            setMessages(list)
             setLoading(false)
-            markConversationRead(conversationId, user.uid)
+
+            // "Okundu" işaretini yalnızca gerçekten gerekiyorsa yaz:
+            // son mesaj karşı taraftan geldiyse ve daha önce bu mesaj için
+            // yazmadıysak. (Eskiden her snapshot'ta gereksiz updateDoc
+            // yapılıyordu — mesaj başına 2 kat yazma.)
+            const last = list[list.length - 1]
+            if (
+              last &&
+              last.senderId !== user.uid &&
+              markedMsgIdRef.current !== last.id
+            ) {
+              markedMsgIdRef.current = last.id
+              markConversationRead(conversationId, user.uid)
+            }
           },
           (err) => {
             console.error('Mesajlar yüklenirken hata:', err)
@@ -84,7 +100,12 @@ function Conversation({ user }) {
   }, [conversationId, user])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!messages.length) return
+    // İlk yüklemede anında en alta; sonraki mesajlarda yumuşak kaydır.
+    bottomRef.current?.scrollIntoView({
+      behavior: firstScrollRef.current ? 'auto' : 'smooth',
+    })
+    firstScrollRef.current = false
   }, [messages])
 
   const handleSend = async (e) => {
@@ -152,7 +173,7 @@ function Conversation({ user }) {
               {conv.productTitle || 'Ürün'}
             </Link>
             <small className="text-muted">
-              {other.myRole === 'seller' ? '🛒 Alıcı' : '🏷️ Satıcı'}: {other.email || 'bilinmiyor'}
+              {other.myRole === 'seller' ? '🛒 Alıcı' : '🏷️ Satıcı'}: {other.name}
             </small>
           </div>
         </div>

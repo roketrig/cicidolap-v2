@@ -5,6 +5,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, query, limit } from 'fi
 import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { deleteProductImage } from '../imageUpload'
+import { removeListingPhone } from '../contact'
 
 function AdminPanel({ user }) {
   const [products, setProducts] = useState([])
@@ -66,6 +67,7 @@ function AdminPanel({ user }) {
     const product = products.find((p) => p.id === id)
     try {
       await deleteDoc(doc(db, 'products', id))
+      removeListingPhone(id) // varsa iletişim kaydını da sil (KVKK)
       setProducts(products.filter(p => p.id !== id))
       setMessage('🗑️ Ürün silindi!')
       setTimeout(() => setMessage(''), 3000)

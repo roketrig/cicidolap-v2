@@ -121,6 +121,21 @@ service cloud.firestore {
       }
     }
 
+    // İlan sahibinin telefon numarası. KVKK gereği ürün dokümanında
+    // (herkese açık) DEĞİL, burada ayrı tutuluyor ve yalnızca giriş yapmış
+    // kullanıcılar okuyabiliyor. Numara ancak ilan sahibi "contactPref:
+    // phone" seçip açık rıza verdiyse oluşturuluyor (bkz. AddProduct.jsx).
+    match /listingContacts/{productId} {
+      allow read: if isSignedIn();
+
+      allow create, update: if isSignedIn()
+                            && (request.auth.uid == request.resource.data.sellerId || isAdmin())
+                            && request.resource.data.phone is string;
+
+      allow delete: if isSignedIn()
+                    && (isAdmin() || resource.data.sellerId == request.auth.uid);
+    }
+
     match /favorites/{favId} {
       // Doküman kimliği her zaman "{uid}_{productId}" formatında —
       // bu sayede bir kullanıcının favorisini başka biri okuyamaz/

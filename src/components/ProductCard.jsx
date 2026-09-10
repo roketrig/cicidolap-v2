@@ -3,7 +3,7 @@
 // Home.jsx ve Products.jsx'teki ürün listeleme kartı — favori kalbi ve
 // "Satıldı" şeridi burada tek yerden yönetiliyor, iki sayfada da aynı
 // markup tekrar tekrar yazılmıyor.
-import React from 'react'
+import React, { memo } from 'react'
 import { Link } from 'react-router-dom'
 
 // Favori kalbi artık emoji değil, SVG. Emoji (🤍 / ❤️) bazı Windows/Android
@@ -23,7 +23,7 @@ function HeartIcon({ filled }) {
   )
 }
 
-export default function ProductCard({ product, isFavorited, onToggleFavorite }) {
+function ProductCard({ product, isFavorited, onToggleFavorite }) {
   return (
     <div className="card product-card h-100 shadow-sm position-relative">
       {product.sold && (
@@ -35,6 +35,8 @@ export default function ProductCard({ product, isFavorited, onToggleFavorite }) 
           <img
             src={product.imageUrl}
             alt={product.title}
+            loading="lazy"
+            decoding="async"
             className="img-fluid h-100 object-fit-cover"
             style={product.sold ? { opacity: 0.55 } : undefined}
           />
@@ -87,3 +89,6 @@ export default function ProductCard({ product, isFavorited, onToggleFavorite }) 
     </div>
   )
 }
+
+// Favori değişince yalnızca ilgili kart yeniden render olsun diye memo'lu.
+export default memo(ProductCard)

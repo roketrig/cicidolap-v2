@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 import ProductCard from '../components/ProductCard'
 import { useFavorites } from '../hooks/useFavorites'
+import { displayName } from '../utils'
 
 const PAGE_SIZE = 24
 
@@ -72,79 +73,86 @@ function Home({ user }) {
   return (
     <div>
       {/* HERO BÖLÜMÜ */}
-      <div className="hero-gradient py-5 text-center">
-        <div className="container">
-          <h1 className="display-4 fw-bold text-dark">
-            {user ? (
-              <>👋 Hoş Geldin, <span className="text-pink-600">{user.email}</span>!</>
-            ) : (
-              <>CİCİ DOLAP</>
-            )}
-          </h1>
-          <p className="lead text-muted mt-3">
-            {user
-              ? '✨ Hemen bir ürün ekleyebilir veya ihtiyacın olanı bulabilirsin.'
-              : '0-12 yaş çocuk ürünleri için sıcacık ikinci el pazarı.'}
-          </p>
-          <div className="d-flex gap-3 justify-content-center mt-4 flex-wrap">
-            <Link to="/products" className="btn btn-pink rounded-pill px-4 py-2">
-              🛍️ Ürünleri Keşfet
-            </Link>
-            {user ? (
-              <Link to="/add-product" className="btn btn-outline-pink rounded-pill px-4 py-2">
-                ➕ Ücretsiz İlan Ver
-              </Link>
-            ) : (
-              <Link to="/register" className="btn btn-outline-pink rounded-pill px-4 py-2">
-                📝 Hemen Katıl
-              </Link>
-            )}
-          </div>
-          {/* İstatistikler */}
-          <div className="d-flex flex-wrap justify-content-center gap-4 mt-5">
-            <div className="hero-stat-pill px-4 py-2 rounded-pill shadow-sm">
-              <span className="fs-3">🛡️</span> Güvenli alışveriş
-            </div>
-            <div className="hero-stat-pill px-4 py-2 rounded-pill shadow-sm">
-              <span className="fs-3">👨‍👩‍👧‍👦</span> 12.000+ mutlu aile
-            </div>
-            <div className="hero-stat-pill px-4 py-2 rounded-pill shadow-sm">
-              <span className="fs-3">♻️</span> Sürdürülebilir
-            </div>
-          </div>
+      <div className="hero-gradient text-center">
+        <div className="container hero-content">
+          {user ? (
+            <>
+              <span className="hero-kicker">👋 Hoş geldin</span>
+              <h1 className="hero-title">
+                Merhaba <span className="text-gradient">{displayName(user)}</span>
+              </h1>
+              <p className="hero-subtitle">
+                Dolabında yer açacak bir şey mi var, yoksa minik birine yeni bir şey mi arıyorsun?
+              </p>
+              <div className="hero-actions">
+                <Link to="/add-product" className="btn btn-pink btn-lg rounded-pill px-4">
+                  ➕ Ürün Ekle
+                </Link>
+                <Link to="/products" className="btn btn-outline-pink btn-lg rounded-pill px-4">
+                  🛍️ Ürünleri Keşfet
+                </Link>
+                <Link to="/messages" className="btn btn-ghost-pink btn-lg rounded-pill px-4">
+                  💬 Mesajlarım
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="hero-kicker">🧸 Anne-babadan anne-babaya</span>
+              <h1 className="hero-title">
+                Cici <span className="text-gradient">Dolap</span>
+              </h1>
+              <p className="hero-subtitle">
+                0-12 yaş çocuk ürünleri için sıcacık bir ikinci el pazarı.
+              </p>
+              <div className="hero-actions">
+                <Link to="/products" className="btn btn-pink btn-lg rounded-pill px-4">
+                  🛍️ Ürünleri Keşfet
+                </Link>
+                <Link to="/register" className="btn btn-outline-pink btn-lg rounded-pill px-4">
+                  📝 Ücretsiz Katıl
+                </Link>
+              </div>
+              <p className="hero-note">Ücretsiz ilan · Türkiye geneli · Aracısız iletişim</p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* ARAMA ÇUBUĞU + İL FİLTRESİ */}
-      <div className="container mt-4">
-        <div className="row justify-content-center g-2">
-          <div className="col-lg-4 col-md-6">
-            <div className="input-group shadow-sm">
-              <span className="input-group-text bg-white border-end-0">🔍</span>
-              <input
-                type="text"
-                className="form-control form-control-lg border-start-0"
-                placeholder="Ürün ara... (örnek: tulum, bebek, oyuncak)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button
-                  className="btn btn-outline-secondary border-start-0"
-                  onClick={() => setSearchTerm('')}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+      {/* ARAMA KARTI — hero'nun alt kenarına biniyor */}
+      <div className="container">
+        <div className="search-card">
+          <div className="search-field">
+            <span className="search-icon" aria-hidden="true">🔍</span>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Ne arıyorsun? (tulum, oyuncak, mont…)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Ürün ara"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                className="search-clear"
+                onClick={() => setSearchTerm('')}
+                aria-label="Aramayı temizle"
+              >
+                ✕
+              </button>
+            )}
           </div>
-          <div className="col-lg-3 col-md-6">
+          <div className="search-sep" />
+          <div className="search-field search-field--select">
+            <span className="search-icon" aria-hidden="true">📍</span>
             <select
-              className="form-select form-select-lg shadow-sm"
+              className="search-select"
               value={selectedProvince}
               onChange={(e) => setSelectedProvince(e.target.value)}
+              aria-label="İl seç"
             >
-              <option value="all">📍 Tüm İller</option>
+              <option value="all">Tüm İller</option>
               {TURKISH_PROVINCES.map((il) => (
                 <option key={il} value={il}>{il}</option>
               ))}
@@ -152,7 +160,7 @@ function Home({ user }) {
           </div>
         </div>
         {(searchTerm || selectedProvince !== 'all') && (
-          <p className="text-muted mt-2 text-center">
+          <p className="text-muted mt-3 text-center small">
             {filteredProducts.length} sonuç bulundu
           </p>
         )}
@@ -160,19 +168,19 @@ function Home({ user }) {
 
       {/* KATEGORİ BUTONLARI */}
       <div className="container mt-4">
-        <div className="d-flex flex-wrap gap-2 justify-content-center">
-          {categories.map((kat) => (
-            <button
-              key={kat}
-              onClick={() => setSelectedCategory(kat === 'Tümü' ? 'all' : kat)}
-              className={`btn rounded-pill px-4 py-2 ${(kat === 'Tümü' && selectedCategory === 'all') || selectedCategory === kat
-                  ? 'btn-pink text-white'
-                  : 'btn-outline-secondary'
-                }`}
-            >
-              {kat}
-            </button>
-          ))}
+        <div className="category-bar d-flex flex-wrap gap-2 justify-content-center">
+          {categories.map((kat) => {
+            const active = (kat === 'Tümü' && selectedCategory === 'all') || selectedCategory === kat
+            return (
+              <button
+                key={kat}
+                onClick={() => setSelectedCategory(kat === 'Tümü' ? 'all' : kat)}
+                className={`btn rounded-pill px-4 py-2 category-chip ${active ? 'btn-pink text-white' : 'btn-outline-secondary'}`}
+              >
+                {kat}
+              </button>
+            )
+          })}
         </div>
       </div>
 

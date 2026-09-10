@@ -24,6 +24,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { nameOrEmail } from './utils'
 
 const MAX_MESSAGE_LENGTH = 2000
 
@@ -88,6 +89,8 @@ export async function startConversation({ product, buyer, text }) {
         participants: [product.userId, buyer.uid],
         sellerEmail: product.userEmail || '',
         buyerEmail: buyer.email || '',
+        sellerName: nameOrEmail(product.userName, product.userEmail),
+        buyerName: nameOrEmail(buyer.displayName, buyer.email),
         createdAt: serverTimestamp(),
         lastReadAt: {},
       },
@@ -128,6 +131,10 @@ export function otherParty(conv, uid) {
   return {
     id: amSeller ? conv.buyerId : conv.sellerId,
     email: amSeller ? conv.buyerEmail : conv.sellerEmail,
+    name: nameOrEmail(
+      amSeller ? conv.buyerName : conv.sellerName,
+      amSeller ? conv.buyerEmail : conv.sellerEmail
+    ),
     myRole: amSeller ? 'seller' : 'buyer',
   }
 }

@@ -1,10 +1,12 @@
 // src/pages/AddProduct.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { Link } from 'react-router-dom'
 import { auth, db } from '../firebase'
 import { uploadProductImage, deleteProductImage } from '../imageUpload'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+import { CONTACT_PREF, KVKK_CONSENT_LABEL, saveListingPhone } from '../contact'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
@@ -18,14 +20,23 @@ function AddProduct() {
     condition: 'new',
     province: '',
     district: '',
+    contactPref: CONTACT_PREF.MESSAGE,
     phone: ''
   })
+  const [phoneConsent, setPhoneConsent] = useState(false)
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const navigate = useNavigate()
+
+  // Seçilen görselin önizleme URL'sini (blob:) değişince/çıkışta serbest bırak.
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   const categories = [
     'Yenidoğan (0-3 ay)',
@@ -82,10 +93,17 @@ function AddProduct() {
       return
     }
 
+    const wantsPhone = formData.contactPref === CONTACT_PREF.PHONE
     const normalizedPhone = formData.phone.replace(/\s+/g, '')
-    if (!PHONE_REGEX.test(normalizedPhone)) {
-      setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
-      return
+    if (wantsPhone) {
+      if (!PHONE_REGEX.test(normalizedPhone)) {
+        setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
+        return
+      }
+      if (!phoneConsent) {
+        setError('Telefon numaranın gösterilmesi için KVKK açık rıza onayını işaretlemelisin.')
+        return
+      }
     }
 
     setLoading(true)
@@ -106,9 +124,12 @@ function AddProduct() {
         imageUrl = await uploadProductImage(image, idToken)
       }
 
+      // Not: telefon numarası KVKK gereği herkese açık "products"
+      // dokümanına YAZILMIYOR. Kullanıcı "Mesaj + telefon" seçtiyse numara
+      // ayrı "listingContacts" dokümanına kaydediliyor (bkz. src/contact.js).
+      const { phone: _omitPhone, ...rest } = formData
       const productData = {
-        ...formData,
-        phone: normalizedPhone,
+        ...rest,
         // "city" alanı, il/ilçeyi tek bir metinde birleştirip eski
         // ekranlarla (ProductDetail, AdminPanel vb.) geriye dönük uyumlu
         // kalmayı sağlıyor. Filtreleme/arama için province ayrı bir alan
@@ -117,13 +138,21 @@ function AddProduct() {
         price: parseFloat(formData.price) || 0,
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
+        userName: auth.currentUser.displayName || '',
         imageUrl: imageUrl,
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
+      if (wantsPhone) {
+        productData.phoneConsentAt = serverTimestamp()
+      }
 
-      await addDoc(collection(db, 'products'), productData)
+      const productRef = await addDoc(collection(db, 'products'), productData)
+
+      if (wantsPhone) {
+        await saveListingPhone(productRef.id, auth.currentUser.uid, normalizedPhone)
+      }
 
       setSuccess('🎉 Ürün başarıyla eklendi! Admin onayından sonra yayınlanacak.')
       setFormData({
@@ -134,8 +163,10 @@ function AddProduct() {
         condition: 'new',
         province: '',
         district: '',
+        contactPref: CONTACT_PREF.MESSAGE,
         phone: ''
       })
+      setPhoneConsent(false)
       setImage(null)
       setImagePreview(null)
 
@@ -314,9 +345,41 @@ function AddProduct() {
                 </div>
               </div>
 
-              {/* İletişim */}
-              <div className="row g-3 mt-0">
-                <div className="col-md-6">
+              {/* İletişim tercihi (KVKK) */}
+              <div className="mt-4">
+                <label className="form-label fw-semibold">Alıcılar sana nasıl ulaşsın?</label>
+                <div className="d-flex flex-column gap-2">
+                  <label className={`contact-pref-option ${formData.contactPref === CONTACT_PREF.MESSAGE ? 'is-active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="contactPref"
+                      value={CONTACT_PREF.MESSAGE}
+                      checked={formData.contactPref === CONTACT_PREF.MESSAGE}
+                      onChange={handleChange}
+                    />
+                    <span>
+                      <strong>💬 Sadece mesajla</strong>
+                      <small className="d-block text-muted">Numaran hiçbir şekilde paylaşılmaz. Önerilen.</small>
+                    </span>
+                  </label>
+                  <label className={`contact-pref-option ${formData.contactPref === CONTACT_PREF.PHONE ? 'is-active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="contactPref"
+                      value={CONTACT_PREF.PHONE}
+                      checked={formData.contactPref === CONTACT_PREF.PHONE}
+                      onChange={handleChange}
+                    />
+                    <span>
+                      <strong>📞 Mesaj + telefon</strong>
+                      <small className="d-block text-muted">Numaran, giriş yapmış kullanıcılara "Telefonu Göster" ile açılır.</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {formData.contactPref === CONTACT_PREF.PHONE && (
+                <div className="mt-3 p-3 rounded-3" style={{ background: 'var(--cd-bg)' }}>
                   <label className="form-label fw-semibold">Telefon <span className="text-danger">*</span></label>
                   <input
                     type="tel"
@@ -325,11 +388,27 @@ function AddProduct() {
                     onChange={handleChange}
                     placeholder="05xx xxx xx xx"
                     className="form-control"
-                    required
                   />
-                  <small className="text-muted">Sadece giriş yapmış kullanıcılar görebilir</small>
+                  <div className="form-check mt-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="phoneConsent"
+                      checked={phoneConsent}
+                      onChange={(e) => setPhoneConsent(e.target.checked)}
+                    />
+                    <label className="form-check-label small" htmlFor="phoneConsent">
+                      {KVKK_CONSENT_LABEL}{' '}
+                      <Link to="/gizlilik" target="_blank" className="text-pink-600">KVKK Aydınlatma Metni</Link>
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              <p className="text-muted small mt-2">
+                🔒 İletişim bilgilerin KVKK kapsamında korunur. İl/ilçe bilgisi ilanda görünür;
+                e-posta adresin diğer kullanıcılarla asla paylaşılmaz.
+              </p>
 
               {/* Gönder Butonu */}
               <div className="d-grid mt-4">

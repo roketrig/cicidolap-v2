@@ -34,6 +34,13 @@
   --cd-shadow-sm: 0 2px 10px rgba(226, 73, 122, 0.08);
   --cd-shadow-md: 0 10px 30px rgba(226, 73, 122, 0.12);
   --cd-shadow-lg: 0 20px 45px rgba(138, 124, 214, 0.18);
+
+  /* Marka degrade — buton, başlık ve vurgu metinlerinde ortak kullanılıyor */
+  --cd-gradient: linear-gradient(120deg, #ff8ba7 0%, #ff6f91 40%, #8a7cd6 100%);
+
+  /* Android/iOS çentik & sistem çubukları için güvenli alan payları */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -50,6 +57,10 @@ html, body {
 body {
   font-family: 'Nunito', 'Inter', sans-serif;
   min-height: 100vh;
+  /* Uygulama (Capacitor) içinde kenar boşluğu / seçim / lastik-bant hissini azalt */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6,
@@ -66,6 +77,11 @@ h1, h2, h3, h4, h5, h6,
   border-image: linear-gradient(90deg, var(--cd-primary), var(--cd-secondary), var(--cd-accent)) 1;
   padding-top: 0.85rem;
   padding-bottom: 0.85rem;
+  /* Android edge-to-edge: durum çubuğunun altında kalmasın */
+  padding-top: calc(0.85rem + var(--safe-top));
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .navbar-brand {
@@ -74,6 +90,7 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .navbar .nav-link {
+  position: relative;
   font-weight: 600;
   color: var(--cd-text);
   border-radius: var(--cd-radius-sm);
@@ -81,25 +98,44 @@ h1, h2, h3, h4, h5, h6,
   transition: background-color 0.2s, color 0.2s;
 }
 
+.navbar .nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.15rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cd-gradient);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+
 .navbar .nav-link:hover {
-  background: var(--cd-bg);
   color: var(--cd-primary-dark);
+}
+
+.navbar .nav-link:hover::after {
+  transform: scaleX(1);
 }
 
 /* ============================================
    🔘 BUTONLAR
    ============================================ */
 .btn-pink {
-  background: linear-gradient(135deg, var(--cd-primary), var(--cd-secondary));
+  background: var(--cd-gradient);
+  background-size: 140% 140%;
+  background-position: 0% 50%;
   color: white;
   border: none;
   font-weight: 700;
-  transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+  transition: transform 0.2s, box-shadow 0.2s, background-position 0.4s;
   box-shadow: var(--cd-shadow-sm);
 }
 
 .btn-pink:hover {
-  background: linear-gradient(135deg, var(--cd-primary-dark), var(--cd-secondary-dark));
+  background-position: 100% 50%;
   transform: translateY(-2px) scale(1.02);
   box-shadow: var(--cd-shadow-md);
   color: white;
@@ -147,50 +183,284 @@ h1, h2, h3, h4, h5, h6,
 .hero-gradient {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(160deg, #fff7f0 0%, #fdeef4 35%, #f2effa 70%, #eafaf6 100%);
-  padding: 4.5rem 0 3.5rem;
+  background:
+    radial-gradient(120% 90% at 12% 0%, #fff2f7 0%, rgba(255, 242, 247, 0) 55%),
+    radial-gradient(120% 90% at 92% 20%, #eef0ff 0%, rgba(238, 240, 255, 0) 50%),
+    linear-gradient(165deg, #fff8f3 0%, #fdeef4 45%, #f0eefb 78%, #e9f9f5 100%);
+  padding: clamp(2.75rem, 8vw, 5rem) 0 clamp(3.5rem, 7vw, 4.75rem);
 }
 
-/* Yumuşak, bulanık renk lekeleri — statik SVG/PNG varlık indirmeden
-   dekoratif derinlik katıyor, performans maliyeti yok. */
+/* Yumuşak, bulanık renk lekeleri — statik varlık indirmeden dekoratif
+   derinlik katıyor, performans maliyeti yok. */
 .hero-gradient::before,
 .hero-gradient::after {
   content: '';
   position: absolute;
   border-radius: 50%;
-  filter: blur(50px);
-  opacity: 0.5;
+  filter: blur(60px);
+  opacity: 0.45;
   z-index: 0;
   pointer-events: none;
 }
 
 .hero-gradient::before {
-  width: 320px;
-  height: 320px;
+  width: 340px;
+  height: 340px;
   background: var(--cd-primary);
-  top: -140px;
-  left: -80px;
+  top: -150px;
+  left: -90px;
+  animation: cd-float 9s ease-in-out infinite;
 }
 
 .hero-gradient::after {
-  width: 280px;
-  height: 280px;
+  width: 300px;
+  height: 300px;
   background: var(--cd-accent);
-  bottom: -120px;
-  right: -60px;
+  bottom: -130px;
+  right: -70px;
+  animation: cd-float 12s ease-in-out infinite reverse;
 }
 
-.hero-gradient .container {
+.hero-content {
   position: relative;
   z-index: 1;
+  max-width: 680px;
 }
 
-.hero-stat-pill {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+/* Hero içeriği yüklenirken sırayla yumuşakça belirsin */
+.hero-content > * {
+  animation: cd-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-content > :nth-child(1) { animation-delay: 0.02s; }
+.hero-content > :nth-child(2) { animation-delay: 0.09s; }
+.hero-content > :nth-child(3) { animation-delay: 0.16s; }
+.hero-content > :nth-child(4) { animation-delay: 0.23s; }
+.hero-content > :nth-child(5) { animation-delay: 0.30s; }
+
+.hero-kicker {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 73, 122, 0.15);
+  color: var(--cd-primary-dark);
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.95rem;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+  box-shadow: var(--cd-shadow-sm);
+}
+
+.hero-title {
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.1rem, 7vw, 3.4rem);
+  line-height: 1.1;
+  color: var(--cd-text);
+  margin-bottom: 0.75rem;
+}
+
+.text-gradient {
+  background: var(--cd-gradient);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: cd-gradient-pan 6s ease-in-out infinite alternate;
+}
+
+.hero-subtitle {
+  font-size: clamp(1rem, 2.6vw, 1.2rem);
+  color: var(--cd-text-muted);
+  max-width: 42ch;
+  margin: 0 auto 1.75rem;
+  line-height: 1.55;
+  text-wrap: balance;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.hero-note {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--cd-text-muted);
+  font-weight: 600;
+}
+
+/* ============================================
+   🔎 ARAMA KARTI (hero'nun altına biniyor)
+   ============================================ */
+.search-card {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  max-width: 680px;
+  margin: -1.9rem auto 0;
+  background: var(--cd-surface);
+  border: 1px solid var(--cd-border);
+  border-radius: 9999px;
+  box-shadow: var(--cd-shadow-md);
+  padding: 0.4rem 0.5rem;
+  animation: cd-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.75rem;
+}
+
+.search-field--select {
+  flex: 0 0 auto;
+}
+
+.search-icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.search-input,
+.search-select {
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--cd-text);
+  width: 100%;
+  min-width: 0;
+}
+
+.search-input::placeholder {
+  color: var(--cd-text-muted);
+}
+
+.search-select {
+  cursor: pointer;
+  max-width: 140px;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8494' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0 center;
+}
+
+.search-sep {
+  width: 1px;
+  background: var(--cd-border);
+  margin: 0.4rem 0;
+  flex-shrink: 0;
+}
+
+.search-clear {
+  border: none;
+  background: var(--cd-bg);
+  color: var(--cd-text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.search-clear:hover {
+  background: #ffe9f0;
+  color: var(--cd-primary-dark);
+}
+
+.search-card:focus-within {
+  border-color: var(--cd-primary);
+  box-shadow: 0 0 0 4px rgba(255, 111, 145, 0.14), var(--cd-shadow-md);
+}
+
+@media (max-width: 560px) {
+  .search-card {
+    flex-direction: column;
+    border-radius: var(--cd-radius-lg);
+    gap: 0;
+    margin-top: -1.4rem;
+  }
+  .search-sep {
+    width: auto;
+    height: 1px;
+    margin: 0 0.75rem;
+  }
+  .search-select {
+    max-width: none;
+  }
+}
+
+/* ============================================
+   ✨ ANİMASYONLAR
+   ============================================ */
+@keyframes cd-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cd-float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(12px, -22px); }
+}
+
+@keyframes cd-gradient-pan {
+  from { background-position: 0% center; }
+  to { background-position: 100% center; }
+}
+
+/* Kategori çubuğu + ürün kartları görünürken yumuşak giriş */
+.category-bar { animation: cd-fade-up 0.5s ease 0.4s both; }
+.category-chip { transition: transform 0.15s ease, box-shadow 0.2s ease; }
+.category-chip:active { transform: scale(0.95); }
+
+#products-list .row > [class*="col-"] {
+  animation: cd-fade-up 0.45s ease both;
+}
+#products-list .row > [class*="col-"]:nth-child(1) { animation-delay: 0.03s; }
+#products-list .row > [class*="col-"]:nth-child(2) { animation-delay: 0.08s; }
+#products-list .row > [class*="col-"]:nth-child(3) { animation-delay: 0.13s; }
+#products-list .row > [class*="col-"]:nth-child(4) { animation-delay: 0.18s; }
+#products-list .row > [class*="col-"]:nth-child(5) { animation-delay: 0.23s; }
+#products-list .row > [class*="col-"]:nth-child(6) { animation-delay: 0.28s; }
+#products-list .row > [class*="col-"]:nth-child(7) { animation-delay: 0.33s; }
+#products-list .row > [class*="col-"]:nth-child(8) { animation-delay: 0.38s; }
+
+/* Hareket hassasiyeti olan kullanıcılar için her şeyi sakinleştir */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Üçüncül buton — degradesiz, hafif */
+.btn-ghost-pink {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(226, 73, 122, 0.2);
+  color: var(--cd-primary-dark);
+  font-weight: 700;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.btn-ghost-pink:hover {
+  background: #fff;
+  transform: translateY(-2px);
+  color: var(--cd-primary-dark);
 }
 
 /* ============================================
@@ -326,6 +596,7 @@ h1, h2, h3, h4, h5, h6,
   background: linear-gradient(135deg, #362f3d, #443a52);
   color: rgba(255, 255, 255, 0.85);
   padding: 2.5rem 0 1.5rem;
+  padding-bottom: calc(1.5rem + var(--safe-bottom));
   margin-top: 3rem;
 }
 
@@ -360,6 +631,35 @@ h1, h2, h3, h4, h5, h6,
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(var(--cd-primary), var(--cd-secondary));
   border-radius: 9999px;
+}
+
+/* ============================================
+   📇 İLETİŞİM TERCİHİ (KVKK — ilan formları)
+   ============================================ */
+.contact-pref-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 1rem;
+  border: 1.5px solid var(--cd-border);
+  border-radius: var(--cd-radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.contact-pref-option:hover {
+  border-color: var(--cd-secondary);
+}
+
+.contact-pref-option.is-active {
+  border-color: var(--cd-primary);
+  background: #fff4f8;
+}
+
+.contact-pref-option input[type='radio'] {
+  margin-top: 0.2rem;
+  accent-color: var(--cd-primary-dark);
+  flex-shrink: 0;
 }
 
 /* ============================================
@@ -403,7 +703,8 @@ h1, h2, h3, h4, h5, h6,
 
 .chat-body {
   height: 55vh;
-  min-height: 320px;
+  height: 55dvh; /* klavye açılınca küçülür (destekleyen WebView'lerde) */
+  min-height: 300px;
   overflow-y: auto;
   background: var(--cd-bg);
   display: flex;
@@ -461,15 +762,15 @@ h1, h2, h3, h4, h5, h6,
    📱 RESPONSIVE
    ============================================ */
 @media (max-width: 576px) {
-  .hero-gradient {
-    padding: 2.5rem 0;
-  }
-  .hero-gradient h1 {
-    font-size: 1.8rem;
-  }
   .hero-gradient::before,
   .hero-gradient::after {
-    width: 180px;
-    height: 180px;
+    width: 200px;
+    height: 200px;
+  }
+  .hero-actions .btn {
+    flex: 1 1 100%;
+  }
+  .chat-body {
+    height: 62vh;
   }
 }

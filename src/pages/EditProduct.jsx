@@ -1,11 +1,12 @@
 // src/pages/EditProduct.jsx
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 import { uploadProductImage, deleteProductImage } from '../imageUpload'
+import { CONTACT_PREF, KVKK_CONSENT_LABEL, saveListingPhone, removeListingPhone, fetchListingPhone } from '../contact'
 
 const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -19,8 +20,10 @@ function EditProduct() {
   const [fatalError, setFatalError] = useState('') // ürün yok / yetki yok — tüm sayfayı kaplar
   const [success, setSuccess] = useState('')
   const [currentImageUrl, setCurrentImageUrl] = useState('')
+  const [ownerId, setOwnerId] = useState('')
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
+  const [phoneConsent, setPhoneConsent] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -29,6 +32,7 @@ function EditProduct() {
     condition: 'new',
     province: '',
     district: '',
+    contactPref: CONTACT_PREF.MESSAGE,
     phone: ''
   })
 
@@ -50,6 +54,13 @@ function EditProduct() {
   useEffect(() => {
     fetchProduct()
   }, [id])
+
+  // Görsel önizleme blob URL'sini temizle.
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   const fetchProduct = async () => {
     try {
@@ -81,6 +92,20 @@ function EditProduct() {
         }
 
         setCurrentImageUrl(data.imageUrl || '')
+        setOwnerId(data.userId || auth.currentUser?.uid || '')
+
+        // İletişim tercihi: yeni alan "contactPref"; eski ilanlarda alan
+        // yoksa ama "phone" varsa telefon tercihi kabul ediyoruz.
+        const pref = data.contactPref || (data.phone ? CONTACT_PREF.PHONE : CONTACT_PREF.MESSAGE)
+        // Telefon: yeni modelde listingContacts'ten, eski ilanlarda doc'tan
+        let phone = data.phone || ''
+        if (pref === CONTACT_PREF.PHONE) {
+          const fromContacts = await fetchListingPhone(id)
+          if (fromContacts) phone = fromContacts
+          // Daha önce telefon tercihi verilmişse rıza da alınmış demektir.
+          setPhoneConsent(true)
+        }
+
         setFormData({
           title: data.title || '',
           category: data.category || '',
@@ -89,7 +114,8 @@ function EditProduct() {
           condition: data.condition || 'new',
           province,
           district,
-          phone: data.phone || ''
+          contactPref: pref,
+          phone
         })
       } else {
         setFatalError('Ürün bulunamadı')
@@ -130,10 +156,17 @@ function EditProduct() {
     setError('')
     setSuccess('')
 
+    const wantsPhone = formData.contactPref === CONTACT_PREF.PHONE
     const normalizedPhone = formData.phone.replace(/\s+/g, '')
-    if (!PHONE_REGEX.test(normalizedPhone)) {
-      setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
-      return
+    if (wantsPhone) {
+      if (!PHONE_REGEX.test(normalizedPhone)) {
+        setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
+        return
+      }
+      if (!phoneConsent) {
+        setError('Telefon numaranın gösterilmesi için KVKK açık rıza onayını işaretlemelisin.')
+        return
+      }
     }
 
     setSubmitting(true)
@@ -146,16 +179,27 @@ function EditProduct() {
         newImageUrl = await uploadProductImage(image, idToken)
       }
 
+      const { phone: _omitPhone, ...rest } = formData
       const productData = {
-        ...formData,
-        phone: normalizedPhone,
+        ...rest,
         city: `${formData.province} / ${formData.district}`,
         price: parseFloat(formData.price) || 0,
+        // Eski ilanlarda herkese açık dokümanda kalmış olabilecek telefonu
+        // KVKK gereği temizliyoruz (numara artık listingContacts'te).
+        phone: deleteField(),
+        phoneConsentAt: wantsPhone ? serverTimestamp() : deleteField(),
         updatedAt: serverTimestamp()
       }
       if (newImageUrl) productData.imageUrl = newImageUrl
 
       await updateDoc(doc(db, 'products', id), productData)
+
+      // Telefon numarasını ayrı koleksiyonda yönet
+      if (wantsPhone) {
+        await saveListingPhone(id, ownerId || auth.currentUser.uid, normalizedPhone)
+      } else {
+        await removeListingPhone(id)
+      }
 
       // Yeni görsel yüklendiyse eskisini R2'den temizle.
       if (newImageUrl && currentImageUrl && currentImageUrl !== newImageUrl) {
@@ -358,9 +402,41 @@ function EditProduct() {
                 </div>
               </div>
 
-              {/* İletişim */}
-              <div className="row g-3 mt-0">
-                <div className="col-md-6">
+              {/* İletişim tercihi (KVKK) */}
+              <div className="mt-4">
+                <label className="form-label fw-semibold">Alıcılar sana nasıl ulaşsın?</label>
+                <div className="d-flex flex-column gap-2">
+                  <label className={`contact-pref-option ${formData.contactPref === CONTACT_PREF.MESSAGE ? 'is-active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="contactPref"
+                      value={CONTACT_PREF.MESSAGE}
+                      checked={formData.contactPref === CONTACT_PREF.MESSAGE}
+                      onChange={handleChange}
+                    />
+                    <span>
+                      <strong>💬 Sadece mesajla</strong>
+                      <small className="d-block text-muted">Numaran hiçbir şekilde paylaşılmaz. Önerilen.</small>
+                    </span>
+                  </label>
+                  <label className={`contact-pref-option ${formData.contactPref === CONTACT_PREF.PHONE ? 'is-active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="contactPref"
+                      value={CONTACT_PREF.PHONE}
+                      checked={formData.contactPref === CONTACT_PREF.PHONE}
+                      onChange={handleChange}
+                    />
+                    <span>
+                      <strong>📞 Mesaj + telefon</strong>
+                      <small className="d-block text-muted">Numaran, giriş yapmış kullanıcılara "Telefonu Göster" ile açılır.</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {formData.contactPref === CONTACT_PREF.PHONE && (
+                <div className="mt-3 p-3 rounded-3" style={{ background: 'var(--cd-bg)' }}>
                   <label className="form-label fw-semibold">Telefon <span className="text-danger">*</span></label>
                   <input
                     type="tel"
@@ -369,10 +445,27 @@ function EditProduct() {
                     onChange={handleChange}
                     placeholder="05xx xxx xx xx"
                     className="form-control"
-                    required
                   />
+                  <div className="form-check mt-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="phoneConsent"
+                      checked={phoneConsent}
+                      onChange={(e) => setPhoneConsent(e.target.checked)}
+                    />
+                    <label className="form-check-label small" htmlFor="phoneConsent">
+                      {KVKK_CONSENT_LABEL}{' '}
+                      <Link to="/gizlilik" target="_blank" className="text-pink-600">KVKK Aydınlatma Metni</Link>
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              <p className="text-muted small mt-2">
+                🔒 İletişim bilgilerin KVKK kapsamında korunur. "Sadece mesajla"ya geçersen
+                kayıtlı telefon numaran sistemden silinir.
+              </p>
 
               {/* Butonlar */}
               <div className="d-flex gap-2 mt-4">

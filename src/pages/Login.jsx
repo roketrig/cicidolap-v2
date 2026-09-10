@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase'
+import { authErrorMessage } from '../utils'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -20,7 +21,8 @@ function Login() {
       await signInWithEmailAndPassword(auth, email, password)
       navigate('/')
     } catch (err) {
-      setError(err.message)
+      console.error('Giriş hatası:', err)
+      setError(authErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -46,6 +48,7 @@ function Login() {
               className="form-control"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
           </div>
@@ -57,6 +60,7 @@ function Login() {
               className="form-control"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
           </div>

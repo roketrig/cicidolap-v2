@@ -1,11 +1,12 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { ADMIN_EMAIL } from './constants'
 import { isUnread } from './chat'
+import { displayName } from './utils'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -19,12 +20,20 @@ import Messages from './pages/Messages'
 import Conversation from './pages/Conversation'
 import Products from './pages/Products'
 import Favorites from './pages/Favorites'
+import Gizlilik from './pages/Gizlilik'
 import NotFound from './pages/NotFound'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function Header({ user }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+
+  // Sayfa değişince açık mobil menüyü kapat.
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [location.pathname])
 
   // Okunmamış mesaj rozeti: kullanıcının katıldığı konuşmalardan, son
   // mesajı karşı tarafın attığı ve henüz okunmamış olanların sayısı.
@@ -70,11 +79,14 @@ function Header({ user }) {
           className="navbar-toggler"
           type="button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Menüyü aç/kapat"
+          aria-expanded={isMenuOpen}
+          aria-controls="ana-menu"
         >
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        <div className={`collapse navbar-collapse ${isMenuOpen ? 'show' : ''}`}>
+        <div id="ana-menu" className={`collapse navbar-collapse ${isMenuOpen ? 'show' : ''}`}>
           <ul className="navbar-nav ms-auto align-items-center gap-2">
             <li className="nav-item">
               <Link to="/" className="nav-link">Ana Sayfa</Link>
@@ -106,7 +118,7 @@ function Header({ user }) {
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link to="/profile" className="nav-link">👤 Profilim</Link>
+                  <Link to="/profile" className="nav-link">👤 {displayName(user)}</Link>
                 </li>
                 <li className="nav-item">
                   <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">Çıkış</button>
@@ -144,7 +156,11 @@ function Footer() {
         </div>
         <hr />
         <div className="text-center">
-          <small>© {new Date().getFullYear()} Cici Dolap · Sevgiyle, Türkiye'de 🇹🇷</small>
+          <small>
+            © {new Date().getFullYear()} Cici Dolap · Sevgiyle, Türkiye'de 🇹🇷
+            {' · '}
+            <Link to="/gizlilik" style={{ color: 'rgba(255,255,255,0.75)' }}>Gizlilik & KVKK</Link>
+          </small>
         </div>
       </div>
     </footer>
@@ -180,6 +196,7 @@ function App() {
       <div className="d-flex flex-column min-vh-100">
         <Header user={user} />
         <div className="flex-grow-1">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route path="/login" element={<Login />} />
@@ -194,8 +211,10 @@ function App() {
             <Route path="/messages/:conversationId" element={<Conversation user={user} />} />
             <Route path="/products" element={<Products user={user} />} />
             <Route path="/favorites" element={<Favorites user={user} />} />
+            <Route path="/gizlilik" element={<Gizlilik />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </ErrorBoundary>
         </div>
         <Footer />
       </div>

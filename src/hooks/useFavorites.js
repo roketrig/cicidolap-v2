@@ -11,7 +11,7 @@
 // dönerse güncelleniyordu; kurallar/çevrimdışı bir sorunda kalp hiç
 // değişmiyor ve sebebi belli olmuyordu.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   collection,
   query,
@@ -26,6 +26,13 @@ import { db } from '../firebase'
 
 export function useFavorites(user) {
   const [favoriteIds, setFavoriteIds] = useState(() => new Set())
+  // favoriteIds'in güncel kopyasını ref'te tutuyoruz ki toggleFavorite'in
+  // kimliği değişmesin (ProductCard React.memo ile sarılı — her favori
+  // değişiminde tüm kartların yeniden render olmasını engelliyor).
+  const favoriteIdsRef = useRef(favoriteIds)
+  useEffect(() => {
+    favoriteIdsRef.current = favoriteIds
+  }, [favoriteIds])
 
   useEffect(() => {
     if (!user) {
@@ -58,7 +65,7 @@ export function useFavorites(user) {
       }
 
       const favRef = doc(db, 'favorites', `${user.uid}_${productId}`)
-      const wasFavorited = favoriteIds.has(productId)
+      const wasFavorited = favoriteIdsRef.current.has(productId)
 
       // 1) Arayüzü hemen güncelle
       setFavoriteIds((prev) => {
@@ -90,7 +97,7 @@ export function useFavorites(user) {
         alert('Favori kaydedilemedi. Lütfen tekrar dene.')
       }
     },
-    [user, favoriteIds]
+    [user]
   )
 
   return { favoriteIds, toggleFavorite }

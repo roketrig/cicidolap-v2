@@ -2,5 +2,12 @@
   "appId": "com.cicidolap.app",
   "appName": "Cici Dolap",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "backgroundColor": "#fffaf6",
+  "android": {
+    "backgroundColor": "#fffaf6"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
 }

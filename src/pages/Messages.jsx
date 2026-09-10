@@ -114,7 +114,7 @@ function Messages({ user }) {
                     {unread && <span className="chat-unread-dot flex-shrink-0" />}
                   </div>
                   <small className="text-muted">
-                    {other.myRole === 'seller' ? '🛒 Alıcı' : '🏷️ Satıcı'}: {other.email || 'bilinmiyor'}
+                    {other.myRole === 'seller' ? '🛒 Alıcı' : '🏷️ Satıcı'}: {other.name}
                   </small>
                 </div>
               </Link>
