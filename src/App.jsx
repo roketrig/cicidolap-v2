@@ -5,6 +5,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { ADMIN_EMAIL } from './constants'
+import { isUnread } from './chat'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -15,6 +16,7 @@ import AdminPanel from './pages/AdminPanel'
 import Profile from './pages/Profile'
 import EditProduct from './pages/EditProduct'
 import Messages from './pages/Messages'
+import Conversation from './pages/Conversation'
 import Products from './pages/Products'
 import Favorites from './pages/Favorites'
 import NotFound from './pages/NotFound'
@@ -24,21 +26,24 @@ function Header({ user }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
-  // Mesaj rozetindeki sayı eskiden hep sabit "3" yazıyordu (okunmamış
-  // mesaj olsun olmasın). Artık gerçek okunmamış mesaj sayısını canlı
-  // olarak (onSnapshot) takip ediyor, 0 iken de rozeti hiç göstermiyor.
+  // Okunmamış mesaj rozeti: kullanıcının katıldığı konuşmalardan, son
+  // mesajı karşı tarafın attığı ve henüz okunmamış olanların sayısı.
+  // Canlı (onSnapshot) güncelleniyor, 0 iken rozet hiç görünmüyor.
   useEffect(() => {
     if (!user) {
       setUnreadCount(0)
       return
     }
     const q = query(
-      collection(db, 'messages'),
-      where('receiverId', '==', user.uid),
-      where('read', '==', false)
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', user.uid)
     )
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setUnreadCount(snapshot.size)
+      let count = 0
+      snapshot.forEach((docSnap) => {
+        if (isUnread(docSnap.data(), user.uid)) count++
+      })
+      setUnreadCount(count)
     }, (error) => {
       console.error('Okunmamış mesaj sayısı alınırken hata:', error)
     })
@@ -186,6 +191,7 @@ function App() {
             <Route path="/profile" element={<Profile user={user} />} />
             <Route path="/edit-product/:id" element={<EditProduct />} />
             <Route path="/messages" element={<Messages user={user} />} />
+            <Route path="/messages/:conversationId" element={<Conversation user={user} />} />
             <Route path="/products" element={<Products user={user} />} />
             <Route path="/favorites" element={<Favorites user={user} />} />
             <Route path="*" element={<NotFound />} />

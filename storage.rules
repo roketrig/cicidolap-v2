@@ -1,5 +1,14 @@
 rules_version = '2';
 
+// ⚠️ ARTIK KULLANILMIYOR ⚠️
+//
+// Firebase Storage bucket'ı hiç oluşturulamadığı için ürün görselleri
+// Cloudflare R2'ye taşındı (bkz. cloudflare-worker/ klasörü ve
+// src/imageUpload.js). Bu dosyayı Firebase Console'a yapıştırmanıza
+// gerek yok — sadece referans/geçmiş olarak burada duruyor. Storage'ı
+// ileride tekrar aktif ederseniz aşağıdaki kurallar hâlâ geçerlidir.
+//
+// --- Eski açıklama ---
 // Cici Dolap - Firebase Storage Güvenlik Kuralları
 //
 // AddProduct.jsx artık ürün görsellerini "products/{kullanıcıId}/dosya"

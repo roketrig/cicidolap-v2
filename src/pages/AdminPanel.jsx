@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
+import { deleteProductImage } from '../imageUpload'
 
 function AdminPanel({ user }) {
   const [products, setProducts] = useState([])
@@ -61,11 +62,24 @@ function AdminPanel({ user }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Bu ürünü silmek istediğine emin misin?')) return
+    const product = products.find((p) => p.id === id)
     try {
       await deleteDoc(doc(db, 'products', id))
       setProducts(products.filter(p => p.id !== id))
       setMessage('🗑️ Ürün silindi!')
       setTimeout(() => setMessage(''), 3000)
+
+      // Admin silince ürünün Cloudflare R2 görselini de temizle. Worker,
+      // admin e-postasını tanıdığı için başkasının görselini de silebilir
+      // (bkz. cloudflare-worker/src/index.js).
+      if (product?.imageUrl && auth.currentUser) {
+        try {
+          const idToken = await auth.currentUser.getIdToken()
+          await deleteProductImage(product.imageUrl, idToken)
+        } catch (imgErr) {
+          console.error('Görsel silinemedi (göz ardı edildi):', imgErr)
+        }
+      }
     } catch (error) {
       console.error('Silme hatası:', error)
     }

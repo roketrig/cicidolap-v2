@@ -67,25 +67,55 @@ service cloud.firestore {
       allow delete: if isAdmin() || isOwner(resource.data.userId);
     }
 
-    match /messages/{messageId} {
-      // Sadece mesajın göndereni veya alıcısı okuyabilir.
-      allow read: if isSignedIn()
-                  && (request.auth.uid == resource.data.senderId
-                      || request.auth.uid == resource.data.receiverId);
+    // Çift yönlü mesajlaşma (bkz. src/chat.js). Her ürün + alıcı çifti
+    // için tek bir konuşma dokümanı ve altında "messages" alt koleksiyonu
+    // var. Eski tek yönlü "messages" kök koleksiyonunun yerini aldı.
+    match /conversations/{cid} {
+      function conv() { return resource.data; }
+      function isParticipant() {
+        return isSignedIn() && request.auth.uid in resource.data.participants;
+      }
 
-      // Mesaj gönderirken senderId kendi uid'in olmalı, kendine mesaj
-      // atamamalı.
+      // Sadece konuşmanın iki tarafı okuyabilir/listeleyebilir.
+      allow read: if isParticipant();
+
+      // Konuşmayı yalnızca alıcı başlatır. participants tam olarak
+      // [sellerId, buyerId] olmalı, alıcı kendine yazamaz ve doküman
+      // kimliği "{productId}__{buyerId}" formatında olmalı.
       allow create: if isSignedIn()
-                    && request.resource.data.senderId == request.auth.uid
-                    && request.resource.data.receiverId != request.auth.uid;
+                    && request.auth.uid == request.resource.data.buyerId
+                    && request.resource.data.buyerId != request.resource.data.sellerId
+                    && request.resource.data.participants.hasOnly([request.resource.data.sellerId, request.resource.data.buyerId])
+                    && request.resource.data.participants.hasAll([request.resource.data.sellerId, request.resource.data.buyerId])
+                    && cid == request.resource.data.productId + '__' + request.resource.data.buyerId;
 
-      // Sadece alıcı, sadece "read" alanını değiştirebilir (okundu
-      // işaretleme). Mesaj içeriği sonradan değiştirilemez.
-      allow update: if isSignedIn()
-                    && request.auth.uid == resource.data.receiverId
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      // Güncelleme: sadece taraflar, ve kimlik alanları (taraflar/ürün)
+      // değiştirilemez. "lastText / lastAt / lastSenderId / lastReadAt"
+      // gibi özet alanları serbestçe güncellenebilir.
+      allow update: if isParticipant()
+                    && request.resource.data.participants == conv().participants
+                    && request.resource.data.sellerId == conv().sellerId
+                    && request.resource.data.buyerId == conv().buyerId
+                    && request.resource.data.productId == conv().productId;
 
       allow delete: if false;
+
+      match /messages/{mid} {
+        function participants() {
+          return get(/databases/$(database)/documents/conversations/$(cid)).data.participants;
+        }
+
+        allow read: if isSignedIn() && request.auth.uid in participants();
+
+        allow create: if isSignedIn()
+                      && request.auth.uid == request.resource.data.senderId
+                      && request.auth.uid in participants()
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 2000;
+
+        allow update, delete: if false;
+      }
     }
 
     match /favorites/{favId} {

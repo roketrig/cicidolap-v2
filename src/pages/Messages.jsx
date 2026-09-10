@@ -1,51 +1,56 @@
 // src/pages/Messages.jsx
+//
+// Konuşma listesi. Kullanıcının katıldığı tüm konuşmalar (hem sattığı
+// ürünler için gelen, hem almak istediği ürünler için gönderdiği) canlı
+// olarak listeleniyor. Bir satıra tıklayınca /messages/:id thread ekranı
+// açılıyor.
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, query, where, getDocs, orderBy, doc, writeBatch } from 'firebase/firestore'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
+import { isUnread, otherParty } from '../chat'
+
+function formatTime(ts) {
+  const d = ts?.toDate?.()
+  if (!d) return ''
+  const now = new Date()
+  const sameDay = d.toDateString() === now.toDateString()
+  return sameDay
+    ? d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
 
 function Messages({ user }) {
-  const [messages, setMessages] = useState([])
+  const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user) {
-      fetchMessages()
-    }
-  }, [user])
-
-  const fetchMessages = async () => {
-    try {
-      setLoading(true)
-      const q = query(
-        collection(db, 'messages'),
-        where('receiverId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      )
-      const querySnapshot = await getDocs(q)
-      const messagesList = []
-      querySnapshot.forEach((docSnap) => {
-        messagesList.push({ id: docSnap.id, ...docSnap.data() })
-      })
-      setMessages(messagesList)
-
-      // Okunmamış mesajları tek tek değil, tek bir batch ile işaretliyoruz
-      // (eskiden her mesaj için ayrı bir await updateDoc çağrısı vardı —
-      // hem daha yavaş hem de gereksiz sayıda yazma işlemi yapıyordu).
-      const unreadMessages = messagesList.filter(m => !m.read)
-      if (unreadMessages.length > 0) {
-        const batch = writeBatch(db)
-        unreadMessages.forEach((msg) => {
-          batch.update(doc(db, 'messages', msg.id), { read: true })
-        })
-        await batch.commit()
-      }
-    } catch (error) {
-      console.error('Mesajlar yüklenirken hata:', error)
-    } finally {
+    if (!user) {
       setLoading(false)
+      return
     }
-  }
+    setLoading(true)
+    // Not: "array-contains" + "orderBy" bileşik index gerektirdiği için
+    // sıralamayı istemci tarafında yapıyoruz (bu ölçekte fark etmez).
+    const q = query(
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', user.uid)
+    )
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+        list.sort((a, b) => (b.lastAt?.toMillis?.() || 0) - (a.lastAt?.toMillis?.() || 0))
+        setConversations(list)
+        setLoading(false)
+      },
+      (error) => {
+        console.error('Konuşmalar yüklenirken hata:', error)
+        setLoading(false)
+      }
+    )
+    return () => unsubscribe()
+  }, [user])
 
   if (!user) {
     return (
@@ -61,43 +66,60 @@ function Messages({ user }) {
   return (
     <div className="container py-4">
       <div className="card shadow-sm p-4 mb-4">
-        <h1 className="fw-bold text-pink-600">💬 Gelen Mesajlar</h1>
-        <p className="text-muted mb-0">Sana gönderilen mesajları burada görebilirsin.</p>
+        <h1 className="fw-bold text-pink-600">💬 Mesajlar</h1>
+        <p className="text-muted mb-0">Alıcı ve satıcılarla yaptığın tüm yazışmalar burada.</p>
       </div>
 
       {loading ? (
         <div className="text-center py-5">
           <div className="spinner-border text-pink-600"></div>
         </div>
-      ) : messages.length === 0 ? (
+      ) : conversations.length === 0 ? (
         <div className="text-center py-5">
           <div className="display-1 mb-3">📭</div>
           <h3>Henüz mesajın yok</h3>
-          <p className="text-muted">Bir ürüne mesaj gönderildiğinde burada görünecek.</p>
+          <p className="text-muted">Bir ürünün sayfasından satıcıya yazınca konuşma burada görünecek.</p>
+          <Link to="/products" className="btn btn-pink rounded-pill px-4 mt-2">Ürünleri Keşfet</Link>
         </div>
       ) : (
         <div className="list-group shadow-sm">
-          {messages.map((msg) => (
-            <div key={msg.id} className="list-group-item list-group-item-action">
-              <div className="d-flex justify-content-between align-items-start">
-                <div className="flex-grow-1">
-                  <div className="d-flex gap-2 align-items-center mb-1">
-                    <span className="badge bg-light text-dark">📌 Ürün #{msg.productId.slice(0, 8)}</span>
-                    <span className={`badge ${msg.read ? 'bg-secondary' : 'bg-success'}`}>
-                      {msg.read ? '✅ Okundu' : '🟢 Yeni'}
+          {conversations.map((conv) => {
+            const other = otherParty(conv, user.uid)
+            const unread = isUnread(conv, user.uid)
+            return (
+              <Link
+                key={conv.id}
+                to={`/messages/${conv.id}`}
+                className="list-group-item list-group-item-action d-flex gap-3 align-items-center py-3"
+              >
+                <div className="chat-thumb flex-shrink-0">
+                  {conv.productImageUrl ? (
+                    <img src={conv.productImageUrl} alt={conv.productTitle} />
+                  ) : (
+                    <span>🧸</span>
+                  )}
+                </div>
+                <div className="flex-grow-1 min-w-0">
+                  <div className="d-flex justify-content-between align-items-baseline gap-2">
+                    <span className={`text-truncate ${unread ? 'fw-bold' : 'fw-semibold'}`}>
+                      {conv.productTitle || 'Ürün'}
                     </span>
+                    <small className="text-muted flex-shrink-0">{formatTime(conv.lastAt)}</small>
                   </div>
-                  <p className="mb-1">{msg.message}</p>
+                  <div className="d-flex justify-content-between align-items-center gap-2">
+                    <span className={`small text-truncate ${unread ? 'text-dark fw-semibold' : 'text-muted'}`}>
+                      {conv.lastSenderId === user.uid && 'Sen: '}
+                      {conv.lastText || 'Yeni konuşma'}
+                    </span>
+                    {unread && <span className="chat-unread-dot flex-shrink-0" />}
+                  </div>
                   <small className="text-muted">
-                    📅 {msg.createdAt?.toDate?.()?.toLocaleString() || 'Tarih bilinmiyor'}
+                    {other.myRole === 'seller' ? '🛒 Alıcı' : '🏷️ Satıcı'}: {other.email || 'bilinmiyor'}
                   </small>
                 </div>
-              </div>
-              <Link to={`/product/${msg.productId}`} className="btn btn-outline-pink btn-sm mt-2">
-                Ürünü Görüntüle →
               </Link>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

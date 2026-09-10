@@ -2,8 +2,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { auth, db, storage } from '../firebase'
+import { auth, db } from '../firebase'
+import { uploadProductImage } from '../imageUpload'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -53,9 +53,9 @@ function AddProduct() {
 
     // Eskiden burada hiç doğrulama yoktu; formda "Max 5MB" yazsa da
     // kullanıcı istediği boyutta/tipte dosya seçebiliyordu ve hata ancak
-    // Storage'a yüklerken (ya da hiç) ortaya çıkıyordu. Artık aynı anda
-    // hem kullanıcıya anında geri bildirim veriyoruz hem de projeye
-    // eklenen storage.rules'taki sınırla tutarlı davranıyoruz.
+    // yüklerken (ya da hiç) ortaya çıkıyordu. Artık aynı anda hem
+    // kullanıcıya anında geri bildirim veriyoruz hem de Worker'daki
+    // sınırla tutarlı davranıyoruz (bkz. cloudflare-worker/src/index.js).
     if (!file.type.startsWith('image/')) {
       setError('Lütfen sadece resim dosyası seç (JPG, PNG, WebP).')
       e.target.value = ''
@@ -93,12 +93,12 @@ function AddProduct() {
     try {
       let imageUrl = ''
       if (image) {
-        // Görseller kullanıcıya özel bir klasöre yükleniyor
-        // (products/{uid}/...) — storage.rules bu yolu kullanarak
-        // kullanıcının sadece kendi klasörüne yazabildiğini garanti eder.
-        const imageRef = ref(storage, `products/${auth.currentUser.uid}/${Date.now()}_${image.name}`)
-        await uploadBytes(imageRef, image)
-        imageUrl = await getDownloadURL(imageRef)
+        // Görseller artık Cloudflare R2'ye, kullanıcıya özel bir klasöre
+        // yükleniyor (products/{uid}/...). Worker, Firebase ID token'ını
+        // doğrulayarak kullanıcının sadece kendi klasörüne yazabildiğini
+        // garanti eder (bkz. cloudflare-worker/src/index.js).
+        const idToken = await auth.currentUser.getIdToken()
+        imageUrl = await uploadProductImage(image, idToken)
       }
 
       const productData = {

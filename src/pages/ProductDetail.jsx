@@ -1,9 +1,11 @@
 // src/pages/ProductDetail.jsx
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { doc, getDoc, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
+import { useFavorites } from '../hooks/useFavorites'
+import { startConversation } from '../chat'
 
 // Telefon numarasını wa.me linki için Türkiye formatına çevirir:
 // "05551234567" / "5551234567" -> "905551234567"
@@ -17,12 +19,13 @@ function toWhatsAppNumber(phone) {
 
 function ProductDetail({ user }) {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { favoriteIds, toggleFavorite } = useFavorites(user)
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [success, setSuccess] = useState('')
   const [soldUpdating, setSoldUpdating] = useState(false)
 
   useEffect(() => {
@@ -65,17 +68,14 @@ function ProductDetail({ user }) {
 
     setSending(true)
     try {
-      await addDoc(collection(db, 'messages'), {
-        productId: product.id,
-        senderId: user.uid,
-        receiverId: product.userId,
-        message: message.trim(),
-        createdAt: serverTimestamp(),
-        read: false
+      // Konuşmayı başlat (ya da varsa devam ettir), sonra thread ekranına git.
+      const cid = await startConversation({
+        product,
+        buyer: user,
+        text: message.trim(),
       })
-      setSuccess('✅ Mesaj başarıyla gönderildi!')
       setMessage('')
-      setTimeout(() => setSuccess(''), 3000)
+      navigate(`/messages/${cid}`)
     } catch (err) {
       console.error('Mesaj gönderme hatası:', err)
       alert('Mesaj gönderilirken bir hata oluştu!')
@@ -129,6 +129,26 @@ function ProductDetail({ user }) {
         <div className="col-lg-6">
           <div className="card shadow-sm border-0 rounded-4 overflow-hidden position-relative">
             {product.sold && <div className="product-sold-ribbon">Satıldı</div>}
+            {user && user.uid !== product.userId && (
+              <button
+                type="button"
+                className={`favorite-btn ${favoriteIds.has(product.id) ? 'is-active' : ''}`}
+                onClick={() => toggleFavorite(product.id)}
+                aria-pressed={favoriteIds.has(product.id)}
+                aria-label={favoriteIds.has(product.id) ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                title={favoriteIds.has(product.id) ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <path
+                    d="M12 20.7s-6.75-4.28-9.4-8.02C.86 9.9 1.73 6.4 4.8 5.5c1.94-.57 3.94.33 5.2 1.96C11.26 5.83 13.26 4.93 15.2 5.5c3.07.9 3.94 4.4 2.2 7.18C18.75 16.42 12 20.7 12 20.7z"
+                    fill={favoriteIds.has(product.id) ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
             <div className="product-image" style={{ height: '400px' }}>
               {product.imageUrl ? (
                 <img
@@ -204,12 +224,6 @@ function ProductDetail({ user }) {
             {user && user.uid !== product.userId && !product.sold && (
               <div className="mt-3">
                 <h6 className="fw-bold">💬 Satıcıya Mesaj Gönder</h6>
-                {success && (
-                  <div className="alert alert-success alert-dismissible fade show py-2">
-                    {success}
-                    <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
-                  </div>
-                )}
                 <form onSubmit={handleSendMessage} className="d-flex gap-2">
                   <input
                     type="text"
@@ -227,7 +241,7 @@ function ProductDetail({ user }) {
                     {sending ? 'Gönderiliyor...' : '📤 Gönder'}
                   </button>
                 </form>
-                <small className="text-muted">Mesajınız satıcıya iletilecek.</small>
+                <small className="text-muted">Mesajı gönderince yazışma ekranına yönlendirileceksin.</small>
               </div>
             )}
 

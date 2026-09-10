@@ -6,6 +6,23 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 
+// Favori kalbi artık emoji değil, SVG. Emoji (🤍 / ❤️) bazı Windows/Android
+// sürümlerinde neredeyse aynı görünüyordu; SVG ile "dolu kırmızı" ve "boş
+// çerçeve" hâli her cihazda net ayırt ediliyor.
+function HeartIcon({ filled }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path
+        d="M12 20.7s-6.75-4.28-9.4-8.02C.86 9.9 1.73 6.4 4.8 5.5c1.94-.57 3.94.33 5.2 1.96C11.26 5.83 13.26 4.93 15.2 5.5c3.07.9 3.94 4.4 2.2 7.18C18.75 16.42 12 20.7 12 20.7z"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export default function ProductCard({ product, isFavorited, onToggleFavorite }) {
   return (
     <div className="card product-card h-100 shadow-sm position-relative">
@@ -28,15 +45,16 @@ export default function ProductCard({ product, isFavorited, onToggleFavorite }) 
         {onToggleFavorite && (
           <button
             type="button"
-            className="favorite-btn"
+            className={`favorite-btn ${isFavorited ? 'is-active' : ''}`}
             onClick={(e) => {
               e.preventDefault()
               onToggleFavorite(product.id)
             }}
+            aria-pressed={isFavorited}
             aria-label={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
             title={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
           >
-            {isFavorited ? '❤️' : '🤍'}
+            <HeartIcon filled={isFavorited} />
           </button>
         )}
       </div>

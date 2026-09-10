@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../firebase'
+import { auth, db } from '../firebase'
+import { deleteProductImage } from '../imageUpload'
 
 function Profile({ user }) {
   const [products, setProducts] = useState([])
@@ -38,11 +39,23 @@ function Profile({ user }) {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Bu ürünü silmek istediğine emin misin?')) return
+    const product = products.find((p) => p.id === id)
     try {
       await deleteDoc(doc(db, 'products', id))
       setProducts(products.filter(p => p.id !== id))
       setMessage('✅ Ürün başarıyla silindi!')
       setTimeout(() => setMessage(''), 3000)
+
+      // Ürün silindiyse Cloudflare R2'deki görselini de temizle (sessizce
+      // başarısız olur — asıl silme işlemi zaten tamamlandı).
+      if (product?.imageUrl && auth.currentUser) {
+        try {
+          const idToken = await auth.currentUser.getIdToken()
+          await deleteProductImage(product.imageUrl, idToken)
+        } catch (imgErr) {
+          console.error('Görsel silinemedi (göz ardı edildi):', imgErr)
+        }
+      }
     } catch (error) {
       console.error('Silme hatası:', error)
       setMessage('❌ Ürün silinirken hata oluştu.')

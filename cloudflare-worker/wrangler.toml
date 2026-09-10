@@ -1,0 +1,17 @@
+name = "cicidolap-images"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# R2 bucket bağlantısı. "bucket_name" burada Cloudflare panelinde
+# oluşturduğunuz bucket'ın adıyla birebir eşleşmeli.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "cicidolap-images"
+
+[vars]
+# Firebase projenizin ID'si (Firebase Console > Proje Ayarları'nda görünür).
+# src/firebase.js dosyasındaki "projectId" ile aynı olmalı.
+FIREBASE_PROJECT_ID = "cici-dolap"
+
+# Admin panelindeki yönetici e-postasıyla aynı olmalı (src/constants.js).
+ADMIN_EMAIL = "admin@cici-dolap.com"

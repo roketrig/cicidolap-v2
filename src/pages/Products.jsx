@@ -1,27 +1,20 @@
 // src/pages/Products.jsx
 import React, { useState, useEffect } from 'react'
-import { collection, query, where, getDocs, orderBy, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db } from '../firebase'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 import ProductCard from '../components/ProductCard'
+import { useFavorites } from '../hooks/useFavorites'
 
 function Products({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedProvince, setSelectedProvince] = useState('all')
-  const [favoriteIds, setFavoriteIds] = useState(new Set())
+  const { favoriteIds, toggleFavorite } = useFavorites(user)
 
   useEffect(() => {
     fetchProducts()
   }, [])
-
-  useEffect(() => {
-    if (user) {
-      fetchFavorites()
-    } else {
-      setFavoriteIds(new Set())
-    }
-  }, [user])
 
   const fetchProducts = async () => {
     try {
@@ -41,41 +34,6 @@ function Products({ user }) {
       console.error('Ürünler yüklenirken hata:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchFavorites = async () => {
-    try {
-      const q = query(collection(db, 'favorites'), where('userId', '==', user.uid))
-      const snap = await getDocs(q)
-      setFavoriteIds(new Set(snap.docs.map((d) => d.data().productId)))
-    } catch (error) {
-      console.error('Favoriler yüklenirken hata:', error)
-    }
-  }
-
-  const handleToggleFavorite = async (productId) => {
-    if (!user) {
-      alert('Favorilere eklemek için lütfen giriş yapın!')
-      return
-    }
-    const favId = `${user.uid}_${productId}`
-    const favRef = doc(db, 'favorites', favId)
-    const alreadyFavorited = favoriteIds.has(productId)
-    try {
-      if (alreadyFavorited) {
-        await deleteDoc(favRef)
-        setFavoriteIds((prev) => {
-          const next = new Set(prev)
-          next.delete(productId)
-          return next
-        })
-      } else {
-        await setDoc(favRef, { userId: user.uid, productId, createdAt: serverTimestamp() })
-        setFavoriteIds((prev) => new Set(prev).add(productId))
-      }
-    } catch (error) {
-      console.error('Favori güncelleme hatası:', error)
     }
   }
 
@@ -117,7 +75,7 @@ function Products({ user }) {
               <ProductCard
                 product={product}
                 isFavorited={favoriteIds.has(product.id)}
-                onToggleFavorite={handleToggleFavorite}
+                onToggleFavorite={toggleFavorite}
               />
             </div>
           ))}

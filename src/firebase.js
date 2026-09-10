@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage"; 
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -15,7 +14,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Authentication ve Firestore servislerini dışa aktar
+// Authentication ve Firestore servislerini dışa aktar.
+// NOT: Firebase Storage artık kullanılmıyor — ürün görselleri Cloudflare R2'ye
+// taşındı (bkz. cloudflare-worker/ klasörü ve src/imageUpload.js).
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app); 
