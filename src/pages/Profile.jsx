@@ -1,13 +1,14 @@
 // src/pages/Profile.jsx
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { collection, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../firebase'
 
 function Profile({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [updatingId, setUpdatingId] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -48,6 +49,23 @@ function Profile({ user }) {
     }
   }
 
+  const handleToggleSold = async (product) => {
+    setUpdatingId(product.id)
+    try {
+      const newSoldValue = !product.sold
+      await updateDoc(doc(db, 'products', product.id), {
+        sold: newSoldValue,
+        updatedAt: serverTimestamp()
+      })
+      setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, sold: newSoldValue } : p))
+    } catch (error) {
+      console.error('Satıldı durumu güncelleme hatası:', error)
+      setMessage('❌ Durum güncellenirken hata oluştu.')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
   if (!user) {
     return (
       <div className="container text-center py-5">
@@ -68,9 +86,14 @@ function Profile({ user }) {
             <h1 className="fw-bold text-pink-600">👤 Profilim</h1>
             <p className="text-muted mb-0">{user.email}</p>
           </div>
-          <Link to="/add-product" className="btn btn-pink rounded-pill px-4">
-            ➕ Yeni Ürün Ekle
-          </Link>
+          <div className="d-flex gap-2">
+            <Link to="/favorites" className="btn btn-outline-pink rounded-pill px-4">
+              🤍 Favorilerim
+            </Link>
+            <Link to="/add-product" className="btn btn-pink rounded-pill px-4">
+              ➕ Yeni Ürün Ekle
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -100,10 +123,16 @@ function Profile({ user }) {
         <div className="row g-4">
           {products.map((product) => (
             <div key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3">
-              <div className="card product-card h-100">
+              <div className="card product-card h-100 position-relative">
+                {product.sold && <div className="product-sold-ribbon">Satıldı</div>}
                 <div className="product-image d-flex align-items-center justify-content-center bg-light">
                   {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.title} className="img-fluid h-100 object-fit-cover" />
+                    <img
+                      src={product.imageUrl}
+                      alt={product.title}
+                      className="img-fluid h-100 object-fit-cover"
+                      style={product.sold ? { opacity: 0.55 } : undefined}
+                    />
                   ) : (
                     <span className="display-1 opacity-25">🧸</span>
                   )}
@@ -125,6 +154,15 @@ function Profile({ user }) {
                     <Link to={`/edit-product/${product.id}`} className="btn btn-outline-primary btn-sm">✏️</Link>
                     <button onClick={() => handleDelete(product.id)} className="btn btn-outline-danger btn-sm">🗑️</button>
                   </div>
+                  {product.status === 'approved' && (
+                    <button
+                      onClick={() => handleToggleSold(product)}
+                      disabled={updatingId === product.id}
+                      className="btn btn-outline-dark btn-sm w-100 mt-2"
+                    >
+                      {updatingId === product.id ? '...' : product.sold ? '↩️ Satışı Geri Al' : '🏷️ Satıldı Olarak İşaretle'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -131,7 +131,10 @@ function AdminPanel({ user }) {
               {products.map((product) => (
                 <tr key={product.id}>
                   <td>
-                    <div className="fw-bold">{product.title}</div>
+                    <div className="fw-bold">
+                      {product.title}
+                      {product.sold && <span className="badge bg-dark ms-2">Satıldı</span>}
+                    </div>
                     <small className="text-muted">{product.userEmail}</small>
                   </td>
                   <td>{product.category}</td>

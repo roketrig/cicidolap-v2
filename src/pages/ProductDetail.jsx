@@ -1,9 +1,19 @@
 // src/pages/ProductDetail.jsx
 import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
+
+// Telefon numarasını wa.me linki için Türkiye formatına çevirir:
+// "05551234567" / "5551234567" -> "905551234567"
+function toWhatsAppNumber(phone) {
+  const digits = (phone || '').replace(/\D/g, '')
+  if (!digits) return null
+  if (digits.startsWith('90')) return digits
+  if (digits.startsWith('0')) return `90${digits.slice(1)}`
+  return `90${digits}`
+}
 
 function ProductDetail({ user }) {
   const { id } = useParams()
@@ -13,6 +23,7 @@ function ProductDetail({ user }) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [success, setSuccess] = useState('')
+  const [soldUpdating, setSoldUpdating] = useState(false)
 
   useEffect(() => {
     fetchProduct()
@@ -73,6 +84,23 @@ function ProductDetail({ user }) {
     }
   }
 
+  const handleToggleSold = async () => {
+    setSoldUpdating(true)
+    try {
+      const newSoldValue = !product.sold
+      await updateDoc(doc(db, 'products', product.id), {
+        sold: newSoldValue,
+        updatedAt: serverTimestamp()
+      })
+      setProduct((prev) => ({ ...prev, sold: newSoldValue }))
+    } catch (err) {
+      console.error('Satıldı durumu güncelleme hatası:', err)
+      alert('Durum güncellenirken bir hata oluştu.')
+    } finally {
+      setSoldUpdating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -91,15 +119,24 @@ function ProductDetail({ user }) {
     )
   }
 
+  const isOwnerOrAdmin = user && (user.uid === product.userId || user.email === ADMIN_EMAIL)
+  const whatsAppNumber = toWhatsAppNumber(product.phone)
+
   return (
     <div className="container py-4">
       <div className="row g-4">
         {/* Ürün Görseli */}
         <div className="col-lg-6">
-          <div className="card shadow-sm border-0 rounded-4 overflow-hidden">
+          <div className="card shadow-sm border-0 rounded-4 overflow-hidden position-relative">
+            {product.sold && <div className="product-sold-ribbon">Satıldı</div>}
             <div className="product-image" style={{ height: '400px' }}>
               {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.title} className="img-fluid w-100 h-100 object-fit-cover" />
+                <img
+                  src={product.imageUrl}
+                  alt={product.title}
+                  className="img-fluid w-100 h-100 object-fit-cover"
+                  style={product.sold ? { opacity: 0.55 } : undefined}
+                />
               ) : (
                 <span className="display-1 opacity-25">📸</span>
               )}
@@ -118,6 +155,7 @@ function ProductDetail({ user }) {
             </div>
 
             <div className="d-flex flex-wrap gap-2 mb-3">
+              {product.sold && <span className="badge bg-dark px-3 py-2">Satıldı</span>}
               <span className="badge bg-light text-dark px-3 py-2">{product.category}</span>
               <span className={`badge badge-${product.condition} px-3 py-2`}>
                 {product.condition === 'new' ? 'Yeni' :
@@ -142,7 +180,17 @@ function ProductDetail({ user }) {
             {user ? (
               <>
                 <p className="text-muted mb-1">📱 {product.phone || 'Belirtilmemiş'}</p>
-                <p className="text-muted small">👤 {product.userEmail || 'Belirtilmemiş'}</p>
+                <p className="text-muted small mb-2">👤 {product.userEmail || 'Belirtilmemiş'}</p>
+                {whatsAppNumber && user.uid !== product.userId && (
+                  <a
+                    href={`https://wa.me/${whatsAppNumber}?text=${encodeURIComponent(`Merhaba, Cici Dolap'ta "${product.title}" ilanınla ilgileniyorum.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline-pink btn-sm rounded-pill"
+                  >
+                    💬 WhatsApp'tan Yaz
+                  </a>
+                )}
               </>
             ) : (
               <p className="text-muted small mb-0">
@@ -153,7 +201,7 @@ function ProductDetail({ user }) {
             <hr />
 
             {/* Mesaj Gönderme */}
-            {user && user.uid !== product.userId && (
+            {user && user.uid !== product.userId && !product.sold && (
               <div className="mt-3">
                 <h6 className="fw-bold">💬 Satıcıya Mesaj Gönder</h6>
                 {success && (
@@ -183,6 +231,12 @@ function ProductDetail({ user }) {
               </div>
             )}
 
+            {user && user.uid !== product.userId && product.sold && (
+              <div className="alert alert-secondary mt-3 mb-0">
+                🏷️ Bu ürün satıldı, artık mesaj gönderilemiyor.
+              </div>
+            )}
+
             {!user && (
               <p className="text-muted small">
                 Satıcıya mesaj göndermek için <Link to="/login" className="text-pink-600 fw-bold">giriş yap</Link>.
@@ -195,11 +249,20 @@ function ProductDetail({ user }) {
               </div>
             )}
 
-            <div className="d-flex gap-2 mt-3">
-              {user && (user.uid === product.userId || user.email === ADMIN_EMAIL) && (
+            <div className="d-flex flex-wrap gap-2 mt-3">
+              {isOwnerOrAdmin && (
                 <Link to={`/edit-product/${product.id}`} className="btn btn-outline-primary flex-grow-1 rounded-pill">
                   ✏️ Düzenle
                 </Link>
+              )}
+              {isOwnerOrAdmin && (
+                <button
+                  onClick={handleToggleSold}
+                  disabled={soldUpdating}
+                  className="btn btn-outline-dark flex-grow-1 rounded-pill"
+                >
+                  {soldUpdating ? '...' : product.sold ? '↩️ Satışı Geri Al' : '🏷️ Satıldı Olarak İşaretle'}
+                </button>
               )}
               <Link to="/" className="btn btn-outline-secondary flex-grow-1 rounded-pill">
                 ← Geri Dön

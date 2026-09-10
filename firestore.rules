@@ -41,15 +41,21 @@ service cloud.firestore {
       // Ürün eklerken: giriş yapmış olmalı, userId/userEmail kendi
       // hesabıyla eşleşmeli, ve durum her zaman "pending" olarak
       // başlamalı (kimse kendi ürününü doğrudan "approved" yapamaz).
-      allow create: if isSignedIn()
-                    && request.resource.data.userId == request.auth.uid
-                    && request.resource.data.userEmail == request.auth.token.email
-                    && request.resource.data.status == 'pending';
+      // Admin istisnası: örnek/vitrin ürünü eklerken (bkz.
+      // scripts/seedProducts.js) doğrudan "approved" oluşturabilir.
+      allow create: if isAdmin()
+                    || (
+                      isSignedIn()
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.userEmail == request.auth.token.email
+                      && request.resource.data.status == 'pending'
+                    );
 
       // Güncelleme: admin her alanı değiştirebilir (onayla/reddet dahil).
-      // Sahibi kendi ürününü güncelleyebilir ama userId/userEmail/status
-      // alanlarını değiştiremez — yoksa kendi ürününü "approved" yapabilir
-      // ya da başka bir kullanıcıya devredebilirdi.
+      // Sahibi kendi ürününü güncelleyebilir (başlık, açıklama, "sold"
+      // durumu vb.) ama userId/userEmail/status alanlarını değiştiremez
+      // — yoksa kendi ürününü "approved" yapabilir ya da başka bir
+      // kullanıcıya devredebilirdi.
       allow update: if isAdmin()
                     || (
                       isOwner(resource.data.userId)
@@ -80,6 +86,23 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
 
       allow delete: if false;
+    }
+
+    match /favorites/{favId} {
+      // Doküman kimliği her zaman "{uid}_{productId}" formatında —
+      // bu sayede bir kullanıcının favorisini başka biri okuyamaz/
+      // silemez/üstüne yazamaz, ve aynı ürünü iki kez favorileyemez
+      // (aynı id'ye tekrar yazmak "create" değil zaten var olan
+      // dokümanı değiştirmek anlamına gelir, o da izinli değil).
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && favId == request.auth.uid + '_' + request.resource.data.productId;
+
+      allow update: if false;
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Tanımlanmamış her şey varsayılan olarak kapalı.

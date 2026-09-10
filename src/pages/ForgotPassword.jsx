@@ -1,25 +1,27 @@
-// src/pages/Login.jsx
+// src/pages/ForgotPassword.jsx
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { Link } from 'react-router-dom'
+import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../firebase'
 
-function Login() {
+function ForgotPassword() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
     setLoading(true)
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
-      navigate('/')
+      await sendPasswordResetEmail(auth, email)
+      setSuccess('✅ Sıfırlama linki e-postana gönderildi! Gelen kutunu (ve spam klasörünü) kontrol et.')
     } catch (err) {
+      // Firebase, güvenlik gereği "bu e-posta kayıtlı değil" gibi bir bilgi
+      // vermez; hatayı olduğu gibi gösteriyoruz.
       setError(err.message)
     } finally {
       setLoading(false)
@@ -29,12 +31,22 @@ function Login() {
   return (
     <div className="container d-flex justify-content-center align-items-center min-vh-100">
       <div className="card shadow-lg p-4" style={{ maxWidth: '400px', width: '100%' }}>
-        <h2 className="text-center fw-bold text-pink-600 mb-4">👗 Giriş Yap</h2>
+        <h2 className="text-center fw-bold text-pink-600 mb-2">🔑 Şifremi Unuttum</h2>
+        <p className="text-muted text-center small mb-4">
+          Kayıtlı e-posta adresini gir, sana bir şifre sıfırlama linki gönderelim.
+        </p>
 
         {error && (
           <div className="alert alert-danger alert-dismissible fade show" role="alert">
             {error}
             <button type="button" className="btn-close" onClick={() => setError('')}></button>
+          </div>
+        )}
+
+        {success && (
+          <div className="alert alert-success alert-dismissible fade show" role="alert">
+            {success}
+            <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
           </div>
         )}
 
@@ -50,36 +62,21 @@ function Login() {
             />
           </div>
 
-          <div className="mb-2">
-            <label className="form-label fw-semibold">Şifre</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="text-end mb-3">
-            <Link to="/forgot-password" className="small text-pink-600">Şifreni mi unuttun?</Link>
-          </div>
-
           <button
             type="submit"
             className="btn btn-pink w-100 py-2 rounded-pill"
             disabled={loading}
           >
-            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+            {loading ? 'Gönderiliyor...' : 'Sıfırlama Linki Gönder'}
           </button>
         </form>
 
         <p className="text-center text-muted mt-3">
-          Hesabın yok mu? <Link to="/register" className="text-pink-600 fw-bold">Kayıt Ol</Link>
+          <Link to="/login" className="text-pink-600 fw-bold">← Girişe dön</Link>
         </p>
       </div>
     </div>
   )
 }
 
-export default Login
+export default ForgotPassword

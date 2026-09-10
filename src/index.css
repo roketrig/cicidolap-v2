@@ -1,133 +1,346 @@
-/* src/index.css - Cici Dolap Özel Stilleri */
+/* src/index.css - Cici Dolap Görsel Kimliği
+   ============================================================
+   Renk paleti, tipografi ve bileşen stilleri burada tanımlanıyor.
+   Bootstrap'in grid/form/alert gibi işlevsel sınıfları olduğu gibi
+   kalıyor (kırmızı=hata, yeşil=başarı gibi evrensel anlamları
+   bozmamak için); marka kimliğini taşıyan özel sınıflar (buton,
+   hero, ürün kartı, rozetler) burada tazelendi.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap');
+
+:root {
+  /* Marka renkleri */
+  --cd-primary: #ff6f91;
+  --cd-primary-dark: #e2497a;
+  --cd-secondary: #8a7cd6;
+  --cd-secondary-dark: #6f5fc4;
+  --cd-accent: #3fbfae;
+  --cd-accent-dark: #2f9f91;
+
+  /* Nötrler */
+  --cd-bg: #fffaf6;
+  --cd-surface: #ffffff;
+  --cd-text: #362f3d;
+  --cd-text-muted: #8b8494;
+  --cd-border: #f1e7ec;
+
+  /* Ölçüler */
+  --cd-radius-sm: 0.6rem;
+  --cd-radius-md: 1rem;
+  --cd-radius-lg: 1.5rem;
+
+  /* Gölgeler (nötr gri yerine hafif pembe tonlu, daha sıcak) */
+  --cd-shadow-sm: 0 2px 10px rgba(226, 73, 122, 0.08);
+  --cd-shadow-md: 0 10px 30px rgba(226, 73, 122, 0.12);
+  --cd-shadow-lg: 0 20px 45px rgba(138, 124, 214, 0.18);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  background: var(--cd-bg);
+  color: var(--cd-text);
+}
+
+body {
+  font-family: 'Nunito', 'Inter', sans-serif;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6,
+.navbar-brand {
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+  font-weight: 700;
+}
 
 /* ============================================
-   🔘 BUTTON STILLERİ
+   🧭 NAVBAR
+   ============================================ */
+.navbar {
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--cd-primary), var(--cd-secondary), var(--cd-accent)) 1;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.navbar-brand {
+  font-size: 1.4rem;
+  letter-spacing: 0.2px;
+}
+
+.navbar .nav-link {
+  font-weight: 600;
+  color: var(--cd-text);
+  border-radius: var(--cd-radius-sm);
+  padding: 0.4rem 0.75rem !important;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.navbar .nav-link:hover {
+  background: var(--cd-bg);
+  color: var(--cd-primary-dark);
+}
+
+/* ============================================
+   🔘 BUTONLAR
    ============================================ */
 .btn-pink {
-  background: linear-gradient(135deg, #f472b6, #a78bfa);
+  background: linear-gradient(135deg, var(--cd-primary), var(--cd-secondary));
   color: white;
   border: none;
-  transition: all 0.3s;
+  font-weight: 700;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+  box-shadow: var(--cd-shadow-sm);
 }
 
 .btn-pink:hover {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
-  transform: scale(1.05);
-  box-shadow: 0 8px 25px rgba(167, 139, 250, 0.4);
+  background: linear-gradient(135deg, var(--cd-primary-dark), var(--cd-secondary-dark));
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: var(--cd-shadow-md);
   color: white;
 }
 
+.btn-pink:disabled {
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-outline-pink {
-  border: 2px solid #a78bfa;
-  color: #a78bfa;
+  border: 2px solid var(--cd-secondary);
+  color: var(--cd-secondary-dark);
   background: transparent;
-  transition: all 0.3s;
+  font-weight: 700;
+  transition: all 0.2s;
 }
 
 .btn-outline-pink:hover {
-  background: #f3e8ff;
-  border-color: #8b5cf6;
-  color: #8b5cf6;
-  transform: scale(1.05);
+  background: var(--cd-secondary);
+  border-color: var(--cd-secondary);
+  color: white;
+  transform: translateY(-2px);
 }
 
 /* ============================================
-   🎨 RENKLER
+   🎨 METİN & YÜZEY RENKLERİ
    ============================================ */
 .text-pink-600 {
-  color: #ec4899;
+  color: var(--cd-primary-dark);
 }
 
 .text-purple-600 {
-  color: #8b5cf6;
+  color: var(--cd-secondary-dark);
 }
 
 .bg-pink-50 {
-  background-color: #fdf2f8;
+  background-color: #fdf1f5;
 }
 
 /* ============================================
    🌟 HERO BÖLÜMÜ
    ============================================ */
 .hero-gradient {
-  background: linear-gradient(135deg, #fef9f7 0%, #fdf2f8 25%, #f3e8ff 50%, #e0f2fe 75%, #d1fae5 100%);
-  padding: 4rem 0;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, #fff7f0 0%, #fdeef4 35%, #f2effa 70%, #eafaf6 100%);
+  padding: 4.5rem 0 3.5rem;
 }
 
-/* Hero'daki "Güvenli alışveriş / mutlu aile / sürdürülebilir" rozetleri.
-   Eskiden Tailwind'e özgü "bg-white/60 backdrop-blur-sm" sınıflarıyla
-   yazılmıştı, ama proje Tailwind'i hiç derlemiyordu (bkz. tailwind.css'in
-   kaldırılması), o yüzden bu rozetler saydamlık/blur olmadan görünüyordu.
-   Aynı görünümü normal CSS ile veriyoruz. */
+/* Yumuşak, bulanık renk lekeleri — statik SVG/PNG varlık indirmeden
+   dekoratif derinlik katıyor, performans maliyeti yok. */
+.hero-gradient::before,
+.hero-gradient::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hero-gradient::before {
+  width: 320px;
+  height: 320px;
+  background: var(--cd-primary);
+  top: -140px;
+  left: -80px;
+}
+
+.hero-gradient::after {
+  width: 280px;
+  height: 280px;
+  background: var(--cd-accent);
+  bottom: -120px;
+  right: -60px;
+}
+
+.hero-gradient .container {
+  position: relative;
+  z-index: 1;
+}
+
 .hero-stat-pill {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
 /* ============================================
    📦 ÜRÜN KARTLARI
    ============================================ */
 .product-card {
-  transition: all 0.3s;
-  border: none;
-  border-radius: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-sm);
   overflow: hidden;
-  background: white;
+  background: var(--cd-surface);
 }
 
 .product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-6px);
+  box-shadow: var(--cd-shadow-lg);
 }
 
 .product-image {
   height: 200px;
   object-fit: cover;
-  background: linear-gradient(135deg, #fdf2f8, #f3e8ff);
+  background: linear-gradient(135deg, #fdeef4, #f2effa);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Favori kalbi — ürün resminin sağ üst köşesinde */
+.favorite-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: var(--cd-shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  z-index: 2;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.12);
+}
+
+/* "Satıldı" şeridi — kartın sol üst köşesine çapraz bant */
+.product-sold-ribbon {
+  position: absolute;
+  top: 14px;
+  left: -34px;
+  width: 140px;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, var(--cd-text), #55495f);
+  color: white;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 0.25rem 0;
+  z-index: 3;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
 /* ============================================
-   🏷️ BADGE STILLERİ
+   🏷️ ROZET STİLLERİ
    ============================================ */
 .badge-new {
-  background-color: #d1fae5;
-  color: #065f46;
-  padding: 0.25rem 0.75rem;
+  background-color: #dff7ee;
+  color: #1c7d5d;
+  padding: 0.3rem 0.8rem;
   border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .badge-like-new {
-  background-color: #dbeafe;
-  color: #1e40af;
-  padding: 0.25rem 0.75rem;
+  background-color: #e6e2fb;
+  color: #5b4fb8;
+  padding: 0.3rem 0.8rem;
   border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .badge-used {
-  background-color: #fef3c7;
-  color: #92400e;
-  padding: 0.25rem 0.75rem;
+  background-color: #fdf0d5;
+  color: #a3711a;
+  padding: 0.3rem 0.8rem;
   border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .badge-worn {
-  background-color: #fed7aa;
-  color: #9a3412;
-  padding: 0.25rem 0.75rem;
+  background-color: #fbe2de;
+  color: #b8492f;
+  padding: 0.3rem 0.8rem;
   border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
+}
+
+/* ============================================
+   🦶 FOOTER
+   ============================================ */
+.cd-footer {
+  background: linear-gradient(135deg, #362f3d, #443a52);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 2.5rem 0 1.5rem;
+  margin-top: 3rem;
+}
+
+.cd-footer .cd-footer-brand {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: white;
+}
+
+.cd-footer hr {
+  border-color: rgba(255, 255, 255, 0.15);
+  margin: 1.5rem 0 1rem;
+}
+
+.cd-footer small {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ============================================
+   📜 SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cd-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--cd-primary), var(--cd-secondary));
+  border-radius: 9999px;
 }
 
 /* ============================================
@@ -135,9 +348,14 @@
    ============================================ */
 @media (max-width: 576px) {
   .hero-gradient {
-    padding: 2rem 0;
+    padding: 2.5rem 0;
   }
   .hero-gradient h1 {
     font-size: 1.8rem;
+  }
+  .hero-gradient::before,
+  .hero-gradient::after {
+    width: 180px;
+    height: 180px;
   }
 }

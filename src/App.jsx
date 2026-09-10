@@ -2,11 +2,13 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { auth } from './firebase'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { auth, db } from './firebase'
 import { ADMIN_EMAIL } from './constants'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 import AddProduct from './pages/AddProduct'
 import ProductDetail from './pages/ProductDetail'
 import AdminPanel from './pages/AdminPanel'
@@ -14,9 +16,34 @@ import Profile from './pages/Profile'
 import EditProduct from './pages/EditProduct'
 import Messages from './pages/Messages'
 import Products from './pages/Products'
+import Favorites from './pages/Favorites'
+import NotFound from './pages/NotFound'
+
 function Header({ user }) {
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  // Mesaj rozetindeki sayı eskiden hep sabit "3" yazıyordu (okunmamış
+  // mesaj olsun olmasın). Artık gerçek okunmamış mesaj sayısını canlı
+  // olarak (onSnapshot) takip ediyor, 0 iken de rozeti hiç göstermiyor.
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0)
+      return
+    }
+    const q = query(
+      collection(db, 'messages'),
+      where('receiverId', '==', user.uid),
+      where('read', '==', false)
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadCount(snapshot.size)
+    }, (error) => {
+      console.error('Okunmamış mesaj sayısı alınırken hata:', error)
+    })
+    return () => unsubscribe()
+  }, [user])
 
   const handleLogout = async () => {
     try {
@@ -61,9 +88,16 @@ function Header({ user }) {
                   </li>
                 )}
                 <li className="nav-item">
+                  <Link to="/favorites" className="nav-link">🤍 Favorilerim</Link>
+                </li>
+                <li className="nav-item">
                   <Link to="/messages" className="nav-link position-relative">
                     💬 Mesajlar
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">3</span>
+                    {unreadCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
                 <li className="nav-item">
@@ -87,6 +121,28 @@ function Header({ user }) {
         </div>
       </div>
     </nav>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="cd-footer">
+      <div className="container">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fs-3">🧸</span>
+            <span className="cd-footer-brand">Cici Dolap</span>
+          </div>
+          <p className="mb-0 small" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            0-12 yaş çocuk ürünleri için sıcacık ikinci el pazarı 💗
+          </p>
+        </div>
+        <hr />
+        <div className="text-center">
+          <small>© {new Date().getFullYear()} Cici Dolap · Sevgiyle, Türkiye'de 🇹🇷</small>
+        </div>
+      </div>
+    </footer>
   )
 }
 
@@ -116,19 +172,27 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Header user={user} />
-      <Routes>
-        <Route path="/" element={<Home user={user} />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/add-product" element={<AddProduct />} />
-        <Route path="/product/:id" element={<ProductDetail user={user} />} />
-        <Route path="/admin" element={<AdminPanel user={user} />} />
-        <Route path="/profile" element={<Profile user={user} />} />
-        <Route path="/edit-product/:id" element={<EditProduct />} />
-        <Route path="/messages" element={<Messages user={user} />} />
-        <Route path="/products" element={<Products />} />
-      </Routes>
+      <div className="d-flex flex-column min-vh-100">
+        <Header user={user} />
+        <div className="flex-grow-1">
+          <Routes>
+            <Route path="/" element={<Home user={user} />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/add-product" element={<AddProduct />} />
+            <Route path="/product/:id" element={<ProductDetail user={user} />} />
+            <Route path="/admin" element={<AdminPanel user={user} />} />
+            <Route path="/profile" element={<Profile user={user} />} />
+            <Route path="/edit-product/:id" element={<EditProduct />} />
+            <Route path="/messages" element={<Messages user={user} />} />
+            <Route path="/products" element={<Products user={user} />} />
+            <Route path="/favorites" element={<Favorites user={user} />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
+        <Footer />
+      </div>
     </BrowserRouter>
   )
 }

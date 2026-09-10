@@ -1,18 +1,27 @@
 // src/pages/Products.jsx
 import React, { useState, useEffect } from 'react'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { Link } from 'react-router-dom'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+import ProductCard from '../components/ProductCard'
 
-function Products() {
+function Products({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedProvince, setSelectedProvince] = useState('all')
+  const [favoriteIds, setFavoriteIds] = useState(new Set())
 
   useEffect(() => {
     fetchProducts()
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      fetchFavorites()
+    } else {
+      setFavoriteIds(new Set())
+    }
+  }, [user])
 
   const fetchProducts = async () => {
     try {
@@ -35,9 +44,45 @@ function Products() {
     }
   }
 
-  const filteredProducts = selectedProvince === 'all'
-    ? products
-    : products.filter(p => p.province === selectedProvince)
+  const fetchFavorites = async () => {
+    try {
+      const q = query(collection(db, 'favorites'), where('userId', '==', user.uid))
+      const snap = await getDocs(q)
+      setFavoriteIds(new Set(snap.docs.map((d) => d.data().productId)))
+    } catch (error) {
+      console.error('Favoriler yüklenirken hata:', error)
+    }
+  }
+
+  const handleToggleFavorite = async (productId) => {
+    if (!user) {
+      alert('Favorilere eklemek için lütfen giriş yapın!')
+      return
+    }
+    const favId = `${user.uid}_${productId}`
+    const favRef = doc(db, 'favorites', favId)
+    const alreadyFavorited = favoriteIds.has(productId)
+    try {
+      if (alreadyFavorited) {
+        await deleteDoc(favRef)
+        setFavoriteIds((prev) => {
+          const next = new Set(prev)
+          next.delete(productId)
+          return next
+        })
+      } else {
+        await setDoc(favRef, { userId: user.uid, productId, createdAt: serverTimestamp() })
+        setFavoriteIds((prev) => new Set(prev).add(productId))
+      }
+    } catch (error) {
+      console.error('Favori güncelleme hatası:', error)
+    }
+  }
+
+  const filteredProducts = products.filter((p) => {
+    if (p.sold) return false
+    return selectedProvince === 'all' || p.province === selectedProvince
+  })
 
   return (
     <div className="container py-4">
@@ -69,35 +114,11 @@ function Products() {
         <div className="row g-4">
           {filteredProducts.map((product) => (
             <div key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3">
-              <div className="card product-card h-100">
-                <div className="product-image d-flex align-items-center justify-content-center bg-light">
-                  {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.title} className="img-fluid h-100 object-fit-cover" />
-                  ) : (
-                    <span className="display-1 opacity-25">🧸</span>
-                  )}
-                </div>
-                <div className="card-body">
-                  <h5 className="card-title fw-bold text-truncate">{product.title}</h5>
-                  <p className="card-text small text-muted">
-                    {product.category}
-                    {product.province && <> · 📍 {product.province}</>}
-                  </p>
-                  <div className="d-flex justify-content-between align-items-center mt-2">
-                    <span className="fs-5 fw-bold text-pink-600">
-                      {product.price === 0 ? '🎁 Bağış' : `${product.price} TL`}
-                    </span>
-                    <span className={`badge badge-${product.condition}`}>
-                      {product.condition === 'new' ? 'Yeni' :
-                       product.condition === 'like-new' ? 'Az Kullanılmış' :
-                       product.condition === 'used' ? 'Kullanılmış' : 'Yıpranmış'}
-                    </span>
-                  </div>
-                  <Link to={`/product/${product.id}`} className="btn btn-pink w-100 mt-3 rounded-pill">
-                    ✨ İncele
-                  </Link>
-                </div>
-              </div>
+              <ProductCard
+                product={product}
+                isFavorited={favoriteIds.has(product.id)}
+                onToggleFavorite={handleToggleFavorite}
+              />
             </div>
           ))}
         </div>
