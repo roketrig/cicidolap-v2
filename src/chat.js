@@ -59,23 +59,40 @@ export async function addMessage(cid, senderId, rawText) {
 // sonra mesajı ekler. Var olan konuşmaya tekrar yazınca sadece mesaj eklenir.
 // Konuşma kimliğini döner (thread ekranına yönlendirmek için).
 export async function startConversation({ product, buyer, text }) {
+  if (!product?.id || !product?.userId) {
+    throw new Error('Ürün bilgisi eksik, mesaj gönderilemiyor.')
+  }
   const cid = conversationId(product.id, buyer.uid)
   const convRef = doc(db, 'conversations', cid)
-  const snap = await getDoc(convRef)
 
-  if (!snap.exists()) {
-    await setDoc(convRef, {
-      productId: product.id,
-      productTitle: product.title || '',
-      productImageUrl: product.imageUrl || '',
-      sellerId: product.userId,
-      buyerId: buyer.uid,
-      participants: [product.userId, buyer.uid],
-      sellerEmail: product.userEmail || '',
-      buyerEmail: buyer.email || '',
-      createdAt: serverTimestamp(),
-      lastReadAt: {},
-    })
+  // Konuşma zaten var mı? Yoksa güvenlik kuralı "yok" durumunu bazen
+  // "izin yok" hatasıyla döndürebildiği için hatayı "yok" kabul edip
+  // oluşturmaya devam ediyoruz (setDoc merge zararsız).
+  let alreadyExists = false
+  try {
+    const snap = await getDoc(convRef)
+    alreadyExists = snap.exists()
+  } catch (err) {
+    console.warn('Konuşma kontrol edilemedi, yeni oluşturuluyor:', err?.code || err)
+  }
+
+  if (!alreadyExists) {
+    await setDoc(
+      convRef,
+      {
+        productId: product.id,
+        productTitle: product.title || '',
+        productImageUrl: product.imageUrl || '',
+        sellerId: product.userId,
+        buyerId: buyer.uid,
+        participants: [product.userId, buyer.uid],
+        sellerEmail: product.userEmail || '',
+        buyerEmail: buyer.email || '',
+        createdAt: serverTimestamp(),
+        lastReadAt: {},
+      },
+      { merge: true }
+    )
   }
 
   await addMessage(cid, buyer.uid, text)

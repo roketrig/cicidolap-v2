@@ -71,13 +71,17 @@ service cloud.firestore {
     // için tek bir konuşma dokümanı ve altında "messages" alt koleksiyonu
     // var. Eski tek yönlü "messages" kök koleksiyonunun yerini aldı.
     match /conversations/{cid} {
-      function conv() { return resource.data; }
       function isParticipant() {
         return isSignedIn() && request.auth.uid in resource.data.participants;
       }
 
       // Sadece konuşmanın iki tarafı okuyabilir/listeleyebilir.
-      allow read: if isParticipant();
+      // "resource == null" hâli: var olmayan bir dokümanı get() ile
+      // sorgularken (src/chat.js konuşma açmadan önce kontrol ediyor)
+      // kural resource.data'ya erişemeyip hata verirdi — bu da "yok"
+      // yerine "izin yok" hatasına dönüşüyordu.
+      allow read: if isSignedIn()
+                  && (resource == null || request.auth.uid in resource.data.participants);
 
       // Konuşmayı yalnızca alıcı başlatır. participants tam olarak
       // [sellerId, buyerId] olmalı, alıcı kendine yazamaz ve doküman
@@ -89,14 +93,13 @@ service cloud.firestore {
                     && request.resource.data.participants.hasAll([request.resource.data.sellerId, request.resource.data.buyerId])
                     && cid == request.resource.data.productId + '__' + request.resource.data.buyerId;
 
-      // Güncelleme: sadece taraflar, ve kimlik alanları (taraflar/ürün)
-      // değiştirilemez. "lastText / lastAt / lastSenderId / lastReadAt"
-      // gibi özet alanları serbestçe güncellenebilir.
+      // Güncelleme: sadece taraflar; ve yalnızca "son mesaj özeti" +
+      // okundu bilgisi alanları değişebilir. Kimlik alanları (participants
+      // / sellerId / buyerId / productId / productTitle ...) affectedKeys
+      // kısıtı sayesinde dokunulamaz.
       allow update: if isParticipant()
-                    && request.resource.data.participants == conv().participants
-                    && request.resource.data.sellerId == conv().sellerId
-                    && request.resource.data.buyerId == conv().buyerId
-                    && request.resource.data.productId == conv().productId;
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['lastText', 'lastAt', 'lastSenderId', 'lastReadAt']);
 
       allow delete: if false;
 

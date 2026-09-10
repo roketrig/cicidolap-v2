@@ -1,7 +1,7 @@
 // src/pages/AdminPanel.jsx
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, limit } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { deleteProductImage } from '../imageUpload'
@@ -24,7 +24,8 @@ function AdminPanel({ user }) {
   const fetchAllProducts = async () => {
     try {
       setLoading(true)
-      const querySnapshot = await getDocs(collection(db, 'products'))
+      // Şimdilik son 500 ürün yeterli; büyürse buraya sayfalama eklenmeli.
+      const querySnapshot = await getDocs(query(collection(db, 'products'), limit(500)))
       const productsList = []
       querySnapshot.forEach((docSnap) => {
         productsList.push({ id: docSnap.id, ...docSnap.data() })

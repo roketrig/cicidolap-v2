@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
-import { uploadProductImage } from '../imageUpload'
+import { uploadProductImage, deleteProductImage } from '../imageUpload'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -90,14 +90,19 @@ function AddProduct() {
 
     setLoading(true)
 
+    // Görsel yüklendikten sonra Firestore'a yazma başarısız olursa,
+    // yüklenen görseli R2'de öksüz bırakmamak için bu iki değeri
+    // catch bloğunda kullanıyoruz.
+    let imageUrl = ''
+    let idToken = null
+
     try {
-      let imageUrl = ''
       if (image) {
         // Görseller artık Cloudflare R2'ye, kullanıcıya özel bir klasöre
         // yükleniyor (products/{uid}/...). Worker, Firebase ID token'ını
         // doğrulayarak kullanıcının sadece kendi klasörüne yazabildiğini
         // garanti eder (bkz. cloudflare-worker/src/index.js).
-        const idToken = await auth.currentUser.getIdToken()
+        idToken = await auth.currentUser.getIdToken()
         imageUrl = await uploadProductImage(image, idToken)
       }
 
@@ -141,6 +146,10 @@ function AddProduct() {
     } catch (err) {
       console.error('Ürün ekleme hatası:', err)
       setError('Ürün eklenirken bir hata oluştu: ' + err.message)
+      // Ürün kaydı oluşmadıysa yüklenmiş görseli temizle.
+      if (imageUrl && idToken) {
+        deleteProductImage(imageUrl, idToken).catch(() => {})
+      }
     } finally {
       setLoading(false)
     }

@@ -1,15 +1,19 @@
 // src/pages/Home.jsx
 import React, { useState, useEffect } from 'react'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Link } from 'react-router-dom'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 import ProductCard from '../components/ProductCard'
 import { useFavorites } from '../hooks/useFavorites'
 
+const PAGE_SIZE = 24
+
 function Home({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE)
+  const [hasMore, setHasMore] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedProvince, setSelectedProvince] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -25,23 +29,27 @@ function Home({ user }) {
   ]
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    fetchProducts(pageSize)
+  }, [pageSize])
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (size) => {
     try {
       setLoading(true)
+      // Bir fazla çekip ("size + 1") daha ürün olup olmadığını anlıyoruz,
+      // fazlalığı listeye eklemiyoruz.
       const q = query(
         collection(db, 'products'),
         where('status', '==', 'approved'),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(size + 1)
       )
       const querySnapshot = await getDocs(q)
       const productsList = []
       querySnapshot.forEach((doc) => {
         productsList.push({ id: doc.id, ...doc.data() })
       })
-      setProducts(productsList)
+      setHasMore(productsList.length > size)
+      setProducts(productsList.slice(0, size))
     } catch (error) {
       console.error('Ürünler yüklenirken hata:', error)
     } finally {
@@ -170,7 +178,7 @@ function Home({ user }) {
 
       {/* ÜRÜN LİSTESİ */}
       <div id="products-list" className="container mt-4 pb-5">
-        {loading ? (
+        {loading && products.length === 0 ? (
           <div className="text-center py-5">
             <div className="spinner-border text-pink-600" role="status">
               <span className="visually-hidden">Yükleniyor...</span>
@@ -196,17 +204,30 @@ function Home({ user }) {
             </p>
           </div>
         ) : (
-          <div className="row g-4">
-            {filteredProducts.map((product) => (
-              <div key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3">
-                <ProductCard
-                  product={product}
-                  isFavorited={favoriteIds.has(product.id)}
-                  onToggleFavorite={toggleFavorite}
-                />
+          <>
+            <div className="row g-4">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3">
+                  <ProductCard
+                    product={product}
+                    isFavorited={favoriteIds.has(product.id)}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                </div>
+              ))}
+            </div>
+            {hasMore && (
+              <div className="text-center mt-4">
+                <button
+                  className="btn btn-outline-pink rounded-pill px-4"
+                  onClick={() => setPageSize((s) => s + PAGE_SIZE)}
+                  disabled={loading}
+                >
+                  {loading ? 'Yükleniyor...' : '⬇️ Daha fazla göster'}
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

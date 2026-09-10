@@ -5,16 +5,22 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+import { uploadProductImage, deleteProductImage } from '../imageUpload'
 
 const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 
 function EditProduct() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState('')          // form içi hatalar (telefon, görsel, kayıt)
+  const [fatalError, setFatalError] = useState('') // ürün yok / yetki yok — tüm sayfayı kaplar
   const [success, setSuccess] = useState('')
+  const [currentImageUrl, setCurrentImageUrl] = useState('')
+  const [image, setImage] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -57,7 +63,7 @@ function EditProduct() {
         const isOwner = data.userId === auth.currentUser?.uid
         const isAdmin = auth.currentUser?.email === ADMIN_EMAIL
         if (!isOwner && !isAdmin) {
-          setError('Bu ürünü düzenleme yetkiniz yok!')
+          setFatalError('Bu ürünü düzenleme yetkiniz yok!')
           setLoading(false)
           return
         }
@@ -74,6 +80,7 @@ function EditProduct() {
           district = parts[1] || (province ? '' : data.city)
         }
 
+        setCurrentImageUrl(data.imageUrl || '')
         setFormData({
           title: data.title || '',
           category: data.category || '',
@@ -85,11 +92,11 @@ function EditProduct() {
           phone: data.phone || ''
         })
       } else {
-        setError('Ürün bulunamadı')
+        setFatalError('Ürün bulunamadı')
       }
     } catch (err) {
       console.error('Ürün yüklenirken hata:', err)
-      setError('Ürün yüklenirken bir hata oluştu')
+      setFatalError('Ürün yüklenirken bir hata oluştu')
     } finally {
       setLoading(false)
     }
@@ -98,6 +105,24 @@ function EditProduct() {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Lütfen sadece resim dosyası seç (JPG, PNG, WebP).')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError("Resim 5MB'dan büyük olamaz. Lütfen daha küçük bir dosya seç.")
+      e.target.value = ''
+      return
+    }
+    setError('')
+    setImage(file)
+    setImagePreview(URL.createObjectURL(file))
   }
 
   const handleSubmit = async (e) => {
@@ -113,7 +138,14 @@ function EditProduct() {
 
     setSubmitting(true)
 
+    let newImageUrl = ''
+    let idToken = null
     try {
+      if (image) {
+        idToken = await auth.currentUser.getIdToken()
+        newImageUrl = await uploadProductImage(image, idToken)
+      }
+
       const productData = {
         ...formData,
         phone: normalizedPhone,
@@ -121,8 +153,15 @@ function EditProduct() {
         price: parseFloat(formData.price) || 0,
         updatedAt: serverTimestamp()
       }
+      if (newImageUrl) productData.imageUrl = newImageUrl
 
       await updateDoc(doc(db, 'products', id), productData)
+
+      // Yeni görsel yüklendiyse eskisini R2'den temizle.
+      if (newImageUrl && currentImageUrl && currentImageUrl !== newImageUrl) {
+        deleteProductImage(currentImageUrl, idToken).catch(() => {})
+        setCurrentImageUrl(newImageUrl)
+      }
 
       setSuccess('✅ Ürün başarıyla güncellendi!')
       setTimeout(() => {
@@ -131,6 +170,10 @@ function EditProduct() {
     } catch (err) {
       console.error('Ürün güncelleme hatası:', err)
       setError('Ürün güncellenirken bir hata oluştu: ' + err.message)
+      // Güncelleme başarısızsa yeni yüklenen görseli öksüz bırakma.
+      if (newImageUrl && idToken) {
+        deleteProductImage(newImageUrl, idToken).catch(() => {})
+      }
     } finally {
       setSubmitting(false)
     }
@@ -144,11 +187,11 @@ function EditProduct() {
     )
   }
 
-  if (error) {
+  if (fatalError) {
     return (
       <div className="container text-center py-5">
         <div className="display-1 mb-3">😕</div>
-        <h2>{error}</h2>
+        <h2>{fatalError}</h2>
         <Link to="/profile" className="btn btn-pink rounded-pill px-4 mt-3">
           Profilime Dön
         </Link>
@@ -173,7 +216,39 @@ function EditProduct() {
               </div>
             )}
 
+            {error && (
+              <div className="alert alert-danger alert-dismissible fade show">
+                ⚠️ {error}
+                <button type="button" className="btn-close" onClick={() => setError('')}></button>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
+              {/* Ürün Görseli */}
+              <div className="mb-3">
+                <label className="form-label fw-semibold">Ürün Görseli</label>
+                <div className="d-flex align-items-center gap-3">
+                  <div className="flex-shrink-0" style={{ width: '90px', height: '90px' }}>
+                    {imagePreview || currentImageUrl ? (
+                      <img
+                        src={imagePreview || currentImageUrl}
+                        alt="Ürün görseli"
+                        className="img-fluid rounded-3 object-fit-cover w-100 h-100 border"
+                      />
+                    ) : (
+                      <div className="d-flex align-items-center justify-content-center bg-light rounded-3 w-100 h-100">
+                        <span className="fs-3 opacity-25">📷</span>
+                      </div>
+                    )}
+                  </div>
+                  <label className="btn btn-outline-secondary flex-grow-1 py-3 border-dashed">
+                    <input type="file" accept="image/*" onChange={handleImageChange} className="d-none" />
+                    <span className="small">{currentImageUrl ? 'Görseli değiştir' : 'Resim seç'}</span>
+                  </label>
+                </div>
+                <small className="text-muted">JPG, PNG, WebP (Max 5MB). Boş bırakırsan mevcut görsel korunur.</small>
+              </div>
+
               {/* Ürün Başlığı */}
               <div className="mb-3">
                 <label className="form-label fw-semibold">Ürün Başlığı <span className="text-danger">*</span></label>
