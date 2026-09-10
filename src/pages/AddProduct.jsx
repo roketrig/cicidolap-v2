@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { auth, db, storage } from '../firebase'
+import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
 
 function AddProduct() {
   const [formData, setFormData] = useState({
@@ -12,7 +16,8 @@ function AddProduct() {
     price: '',
     description: '',
     condition: 'new',
-    city: '',
+    province: '',
+    district: '',
     phone: ''
   })
   const [image, setImage] = useState(null)
@@ -44,34 +49,66 @@ function AddProduct() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      setImage(file)
-      setImagePreview(URL.createObjectURL(file))
+    if (!file) return
+
+    // Eskiden burada hiç doğrulama yoktu; formda "Max 5MB" yazsa da
+    // kullanıcı istediği boyutta/tipte dosya seçebiliyordu ve hata ancak
+    // Storage'a yüklerken (ya da hiç) ortaya çıkıyordu. Artık aynı anda
+    // hem kullanıcıya anında geri bildirim veriyoruz hem de projeye
+    // eklenen storage.rules'taki sınırla tutarlı davranıyoruz.
+    if (!file.type.startsWith('image/')) {
+      setError('Lütfen sadece resim dosyası seç (JPG, PNG, WebP).')
+      e.target.value = ''
+      return
     }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError("Resim 5MB'dan büyük olamaz. Lütfen daha küçük bir dosya seç.")
+      e.target.value = ''
+      return
+    }
+
+    setError('')
+    setImage(file)
+    setImagePreview(URL.createObjectURL(file))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
-    setLoading(true)
 
     if (!auth.currentUser) {
       setError('Lütfen önce giriş yapın!')
-      setLoading(false)
       return
     }
+
+    const normalizedPhone = formData.phone.replace(/\s+/g, '')
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
+      return
+    }
+
+    setLoading(true)
 
     try {
       let imageUrl = ''
       if (image) {
-        const imageRef = ref(storage, `products/${Date.now()}_${image.name}`)
+        // Görseller kullanıcıya özel bir klasöre yükleniyor
+        // (products/{uid}/...) — storage.rules bu yolu kullanarak
+        // kullanıcının sadece kendi klasörüne yazabildiğini garanti eder.
+        const imageRef = ref(storage, `products/${auth.currentUser.uid}/${Date.now()}_${image.name}`)
         await uploadBytes(imageRef, image)
         imageUrl = await getDownloadURL(imageRef)
       }
 
       const productData = {
         ...formData,
+        phone: normalizedPhone,
+        // "city" alanı, il/ilçeyi tek bir metinde birleştirip eski
+        // ekranlarla (ProductDetail, AdminPanel vb.) geriye dönük uyumlu
+        // kalmayı sağlıyor. Filtreleme/arama için province ayrı bir alan
+        // olarak da saklanıyor (bkz. Home.jsx'teki il filtresi).
+        city: `${formData.province} / ${formData.district}`,
         price: parseFloat(formData.price) || 0,
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
@@ -90,7 +127,8 @@ function AddProduct() {
         price: '',
         description: '',
         condition: 'new',
-        city: '',
+        province: '',
+        district: '',
         phone: ''
       })
       setImage(null)
@@ -236,20 +274,39 @@ function AddProduct() {
                 />
               </div>
 
-              {/* İletişim */}
+              {/* Konum */}
               <div className="row g-3">
                 <div className="col-md-6">
-                  <label className="form-label fw-semibold">İl / İlçe <span className="text-danger">*</span></label>
+                  <label className="form-label fw-semibold">İl <span className="text-danger">*</span></label>
+                  <select
+                    name="province"
+                    value={formData.province}
+                    onChange={handleChange}
+                    className="form-select"
+                    required
+                  >
+                    <option value="">İl seç</option>
+                    {TURKISH_PROVINCES.map((il) => (
+                      <option key={il} value={il}>{il}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">İlçe / Semt <span className="text-danger">*</span></label>
                   <input
                     type="text"
-                    name="city"
-                    value={formData.city}
+                    name="district"
+                    value={formData.district}
                     onChange={handleChange}
-                    placeholder="Örn: İstanbul / Kadıköy"
+                    placeholder="Örn: Kadıköy"
                     className="form-control"
                     required
                   />
                 </div>
+              </div>
+
+              {/* İletişim */}
+              <div className="row g-3 mt-0">
                 <div className="col-md-6">
                   <label className="form-label fw-semibold">Telefon <span className="text-danger">*</span></label>
                   <input
@@ -261,6 +318,7 @@ function AddProduct() {
                     className="form-control"
                     required
                   />
+                  <small className="text-muted">Sadece giriş yapmış kullanıcılar görebilir</small>
                 </div>
               </div>
 

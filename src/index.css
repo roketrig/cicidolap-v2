@@ -54,6 +54,17 @@
   padding: 4rem 0;
 }
 
+/* Hero'daki "Güvenli alışveriş / mutlu aile / sürdürülebilir" rozetleri.
+   Eskiden Tailwind'e özgü "bg-white/60 backdrop-blur-sm" sınıflarıyla
+   yazılmıştı, ama proje Tailwind'i hiç derlemiyordu (bkz. tailwind.css'in
+   kaldırılması), o yüzden bu rozetler saydamlık/blur olmadan görünüyordu.
+   Aynı görünümü normal CSS ile veriyoruz. */
+.hero-stat-pill {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 /* ============================================
    📦 ÜRÜN KARTLARI
    ============================================ */

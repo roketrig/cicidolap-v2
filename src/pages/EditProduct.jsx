@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { ADMIN_EMAIL } from '../constants'
+import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+
+const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
 
 function EditProduct() {
   const { id } = useParams()
@@ -17,7 +21,8 @@ function EditProduct() {
     price: '',
     description: '',
     condition: 'new',
-    city: '',
+    province: '',
+    district: '',
     phone: ''
   })
 
@@ -45,22 +50,38 @@ function EditProduct() {
       setLoading(true)
       const docRef = doc(db, 'products', id)
       const docSnap = await getDoc(docRef)
-      
+
       if (docSnap.exists()) {
         const data = docSnap.data()
-        // Kullanıcı kontrolü - sadece kendi ürününü düzenleyebilir
-        if (data.userId !== auth.currentUser?.uid) {
+        // Kullanıcı kontrolü - sadece kendi ürününü ya da admin düzenleyebilir.
+        const isOwner = data.userId === auth.currentUser?.uid
+        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL
+        if (!isOwner && !isAdmin) {
           setError('Bu ürünü düzenleme yetkiniz yok!')
           setLoading(false)
           return
         }
+
+        // "province"/"district" alanları sonradan eklendi. Daha eski
+        // ürünlerde sadece birleşik "city" metni var (Örn: "İstanbul /
+        // Kadıköy") — mümkünse onu ayrıştırıp formu önceden dolduruyoruz,
+        // ayrıştıramazsak kullanıcı ilini yeniden seçer.
+        let province = data.province || ''
+        let district = data.district || ''
+        if (!province && data.city) {
+          const parts = data.city.split('/').map(p => p.trim())
+          province = TURKISH_PROVINCES.includes(parts[0]) ? parts[0] : ''
+          district = parts[1] || (province ? '' : data.city)
+        }
+
         setFormData({
           title: data.title || '',
           category: data.category || '',
           price: data.price?.toString() || '',
           description: data.description || '',
           condition: data.condition || 'new',
-          city: data.city || '',
+          province,
+          district,
           phone: data.phone || ''
         })
       } else {
@@ -83,17 +104,26 @@ function EditProduct() {
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    const normalizedPhone = formData.phone.replace(/\s+/g, '')
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
+      return
+    }
+
     setSubmitting(true)
 
     try {
       const productData = {
         ...formData,
+        phone: normalizedPhone,
+        city: `${formData.province} / ${formData.district}`,
         price: parseFloat(formData.price) || 0,
         updatedAt: serverTimestamp()
       }
 
       await updateDoc(doc(db, 'products', id), productData)
-      
+
       setSuccess('✅ Ürün başarıyla güncellendi!')
       setTimeout(() => {
         navigate(`/product/${id}`)
@@ -108,193 +138,186 @@ function EditProduct() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Yükleniyor...</p>
-        </div>
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <div className="spinner-border text-pink-600"></div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm p-8 text-center">
-          <div className="text-6xl mb-4">😕</div>
-          <h2 className="text-2xl font-bold text-red-600">{error}</h2>
-          <Link to="/profile" className="mt-4 inline-block bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600">
-            Profilime Dön
-          </Link>
-        </div>
+      <div className="container text-center py-5">
+        <div className="display-1 mb-3">😕</div>
+        <h2>{error}</h2>
+        <Link to="/profile" className="btn btn-pink rounded-pill px-4 mt-3">
+          Profilime Dön
+        </Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">✏️ Ürün Düzenle</h1>
-          <p className="text-gray-600 mt-2">Ürün bilgilerini güncelle</p>
+    <div className="container py-4">
+      <div className="row justify-content-center">
+        <div className="col-lg-8 col-xl-7">
+          <div className="card shadow-lg border-0 rounded-4 p-4">
+            <div className="text-center mb-4">
+              <h1 className="fw-bold text-pink-600">✏️ Ürün Düzenle</h1>
+              <p className="text-muted">Ürün bilgilerini güncelle</p>
+            </div>
+
+            {success && (
+              <div className="alert alert-success alert-dismissible fade show">
+                {success}
+                <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              {/* Ürün Başlığı */}
+              <div className="mb-3">
+                <label className="form-label fw-semibold">Ürün Başlığı <span className="text-danger">*</span></label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  placeholder="Örn: Bebek Tulum 3-6 Ay"
+                  className="form-control"
+                  required
+                />
+              </div>
+
+              {/* Kategori */}
+              <div className="mb-3">
+                <label className="form-label fw-semibold">Kategori <span className="text-danger">*</span></label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Kategori seç</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fiyat ve Durum */}
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Fiyat (TL) <span className="text-danger">*</span></label>
+                  <input
+                    type="number"
+                    name="price"
+                    value={formData.price}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    className="form-control"
+                    required
+                    min="0"
+                    step="0.01"
+                  />
+                  <small className="text-muted">Bağış yapacaksan 0 yaz</small>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Ürün Durumu <span className="text-danger">*</span></label>
+                  <select
+                    name="condition"
+                    value={formData.condition}
+                    onChange={handleChange}
+                    className="form-select"
+                    required
+                  >
+                    {conditions.map((cond) => (
+                      <option key={cond.value} value={cond.value}>{cond.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Açıklama */}
+              <div className="mb-3 mt-3">
+                <label className="form-label fw-semibold">Ürün Açıklaması <span className="text-danger">*</span></label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Ürünü detaylıca anlat..."
+                  rows="4"
+                  className="form-control"
+                  required
+                />
+              </div>
+
+              {/* Konum */}
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">İl <span className="text-danger">*</span></label>
+                  <select
+                    name="province"
+                    value={formData.province}
+                    onChange={handleChange}
+                    className="form-select"
+                    required
+                  >
+                    <option value="">İl seç</option>
+                    {TURKISH_PROVINCES.map((il) => (
+                      <option key={il} value={il}>{il}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">İlçe / Semt <span className="text-danger">*</span></label>
+                  <input
+                    type="text"
+                    name="district"
+                    value={formData.district}
+                    onChange={handleChange}
+                    placeholder="Örn: Kadıköy"
+                    className="form-control"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* İletişim */}
+              <div className="row g-3 mt-0">
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Telefon <span className="text-danger">*</span></label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="05xx xxx xx xx"
+                    className="form-control"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Butonlar */}
+              <div className="d-flex gap-2 mt-4">
+                <button
+                  type="submit"
+                  className="btn btn-pink flex-grow-1 py-2 rounded-pill"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Güncelleniyor...' : '💾 Güncelle'}
+                </button>
+                <Link
+                  to={`/product/${id}`}
+                  className="btn btn-outline-secondary flex-grow-1 py-2 rounded-pill text-center"
+                >
+                  İptal
+                </Link>
+              </div>
+            </form>
+          </div>
         </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            ⚠️ {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-            ✅ {success}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Ürün Başlığı */}
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              Ürün Başlığı <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="Örn: Bebek Tulum 3-6 Ay"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-              required
-            />
-          </div>
-
-          {/* Kategori */}
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              Kategori <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-              required
-            >
-              <option value="">Kategori seç</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Fiyat ve Durum */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                Fiyat (TL) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
-                placeholder="0.00"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-                required
-                min="0"
-                step="0.01"
-              />
-              <p className="text-xs text-gray-500 mt-1">Bağış yapacaksan 0 yaz</p>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                Ürün Durumu <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="condition"
-                value={formData.condition}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-                required
-              >
-                {conditions.map((cond) => (
-                  <option key={cond.value} value={cond.value}>{cond.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Açıklama */}
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              Ürün Açıklaması <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Ürünü detaylıca anlat..."
-              rows="4"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 resize-y"
-              required
-            />
-          </div>
-
-          {/* İletişim Bilgileri */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                İl / İlçe <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="Örn: İstanbul / Kadıköy"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                Telefon <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="05xx xxx xx xx"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Butonlar */}
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={submitting}
-              className={`flex-1 py-3 text-white font-semibold rounded-lg transition ${
-                submitting 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-pink-500 hover:bg-pink-600'
-              }`}
-            >
-              {submitting ? 'Güncelleniyor...' : '💾 Güncelle'}
-            </button>
-            <Link
-              to={`/product/${id}`}
-              className="flex-1 text-center bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg transition"
-            >
-              İptal
-            </Link>
-          </div>
-        </form>
       </div>
     </div>
   )

@@ -3,11 +3,13 @@ import React, { useState, useEffect } from 'react'
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Link } from 'react-router-dom'
+import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 
 function Home({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedProvince, setSelectedProvince] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
 
   const categories = [
@@ -46,10 +48,14 @@ function Home({ user }) {
 
   const filteredProducts = products.filter(product => {
     const categoryMatch = selectedCategory === 'all' || product.category === selectedCategory
+    // Eski ürünlerde ayrı bir "province" alanı olmayabilir (sadece
+    // birleşik "city" metni vardı) — bu ürünler bir il filtrelendiğinde
+    // listeden düşer, "Tüm İller" seçiliyken yine görünür.
+    const provinceMatch = selectedProvince === 'all' || product.province === selectedProvince
     const searchMatch = searchTerm === '' ||
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    return categoryMatch && searchMatch
+    return categoryMatch && provinceMatch && searchMatch
   })
 
   return (
@@ -57,14 +63,14 @@ function Home({ user }) {
       {/* HERO BÖLÜMÜ */}
       <div className="hero-gradient py-5 text-center">
         <div className="container">
-          <h1 className="display-4 fw-bold text-gray-800">
+          <h1 className="display-4 fw-bold text-dark">
             {user ? (
               <>👋 Hoş Geldin, <span className="text-pink-600">{user.email}</span>!</>
             ) : (
               <>CİCİ DOLAP</>
             )}
           </h1>
-          <p className="lead text-gray-600 mt-3">
+          <p className="lead text-muted mt-3">
             {user
               ? '✨ Hemen bir ürün ekleyebilir veya ihtiyacın olanı bulabilirsin.'
               : '0-12 yaş çocuk ürünleri için sıcacık ikinci el pazarı.'}
@@ -85,23 +91,23 @@ function Home({ user }) {
           </div>
           {/* İstatistikler */}
           <div className="d-flex flex-wrap justify-content-center gap-4 mt-5">
-            <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-pill shadow-sm">
+            <div className="hero-stat-pill px-4 py-2 rounded-pill shadow-sm">
               <span className="fs-3">🛡️</span> Güvenli alışveriş
             </div>
-            <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-pill shadow-sm">
+            <div className="hero-stat-pill px-4 py-2 rounded-pill shadow-sm">
               <span className="fs-3">👨‍👩‍👧‍👦</span> 12.000+ mutlu aile
             </div>
-            <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-pill shadow-sm">
+            <div className="hero-stat-pill px-4 py-2 rounded-pill shadow-sm">
               <span className="fs-3">♻️</span> Sürdürülebilir
             </div>
           </div>
         </div>
       </div>
 
-      {/* ARAMA ÇUBUĞU */}
+      {/* ARAMA ÇUBUĞU + İL FİLTRESİ */}
       <div className="container mt-4">
-        <div className="row justify-content-center">
-          <div className="col-lg-6">
+        <div className="row justify-content-center g-2">
+          <div className="col-lg-4 col-md-6">
             <div className="input-group shadow-sm">
               <span className="input-group-text bg-white border-end-0">🔍</span>
               <input
@@ -120,13 +126,25 @@ function Home({ user }) {
                 </button>
               )}
             </div>
-            {searchTerm && (
-              <p className="text-muted mt-2 text-center">
-                {filteredProducts.length} sonuç bulundu
-              </p>
-            )}
+          </div>
+          <div className="col-lg-3 col-md-6">
+            <select
+              className="form-select form-select-lg shadow-sm"
+              value={selectedProvince}
+              onChange={(e) => setSelectedProvince(e.target.value)}
+            >
+              <option value="all">📍 Tüm İller</option>
+              {TURKISH_PROVINCES.map((il) => (
+                <option key={il} value={il}>{il}</option>
+              ))}
+            </select>
           </div>
         </div>
+        {(searchTerm || selectedProvince !== 'all') && (
+          <p className="text-muted mt-2 text-center">
+            {filteredProducts.length} sonuç bulundu
+          </p>
+        )}
       </div>
 
       {/* KATEGORİ BUTONLARI */}
@@ -158,10 +176,10 @@ function Home({ user }) {
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-5">
             <div className="fs-1 mb-3">📭</div>
-            <h3>{searchTerm ? 'Aradığın kriterde ürün bulunamadı' : 'Henüz ürün yok'}</h3>
+            <h3>{searchTerm || selectedProvince !== 'all' ? 'Aradığın kriterde ürün bulunamadı' : 'Henüz ürün yok'}</h3>
             <p className="text-muted">
-              {searchTerm ? (
-                'Farklı bir kelimeyle tekrar dene'
+              {searchTerm || selectedProvince !== 'all' ? (
+                'Farklı bir kelime ya da il ile tekrar dene'
               ) : (
                 <>
                   İlk ürünü sen ekle!
@@ -199,7 +217,10 @@ function Home({ user }) {
                             product.condition === 'used' ? 'Kullanılmış' : 'Yıpranmış'}
                       </span>
                     </div>
-                    <p className="card-text small text-muted">{product.category}</p>
+                    <p className="card-text small text-muted">
+                      {product.category}
+                      {product.province && <> · 📍 {product.province}</>}
+                    </p>
                     <div className="d-flex justify-content-between align-items-center mt-2">
                       <span className="fs-5 fw-bold text-pink-600">
                         {product.price === 0 ? '🎁 Bağış' : `${product.price} TL`}

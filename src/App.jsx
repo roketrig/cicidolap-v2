@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth } from './firebase'
+import { ADMIN_EMAIL } from './constants'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -33,9 +34,9 @@ function Header({ user }) {
   <span className="fs-2">🧸</span>  {/* Yeni Logo: Oyuncak Ayı */}
   <span>Cici Dolap</span>
 </Link>
-        <button 
-          className="navbar-toggler" 
-          type="button" 
+        <button
+          className="navbar-toggler"
+          type="button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           <span className="navbar-toggler-icon"></span>
@@ -54,7 +55,7 @@ function Header({ user }) {
                     ➕ Ürün Ekle
                   </Link>
                 </li>
-                {user.email === 'admin@cici-dolap.com' && (
+                {user.email === ADMIN_EMAIL && (
                   <li className="nav-item">
                     <Link to="/admin" className="nav-link">⚙️ Admin</Link>
                   </li>
@@ -122,7 +123,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/add-product" element={<AddProduct />} />
         <Route path="/product/:id" element={<ProductDetail user={user} />} />
-        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin" element={<AdminPanel user={user} />} />
         <Route path="/profile" element={<Profile user={user} />} />
         <Route path="/edit-product/:id" element={<EditProduct />} />
         <Route path="/messages" element={<Messages user={user} />} />

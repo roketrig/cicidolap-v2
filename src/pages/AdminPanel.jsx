@@ -1,26 +1,34 @@
 // src/pages/AdminPanel.jsx
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { ADMIN_EMAIL } from '../constants'
 
-function AdminPanel() {
+function AdminPanel({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
+  const isAdmin = user?.email === ADMIN_EMAIL
+
   useEffect(() => {
-    fetchAllProducts()
-  }, [])
+    if (isAdmin) {
+      fetchAllProducts()
+    } else {
+      setLoading(false)
+    }
+  }, [isAdmin])
 
   const fetchAllProducts = async () => {
     try {
       setLoading(true)
       const querySnapshot = await getDocs(collection(db, 'products'))
       const productsList = []
-      querySnapshot.forEach((doc) => {
-        productsList.push({ id: doc.id, ...doc.data() })
+      querySnapshot.forEach((docSnap) => {
+        productsList.push({ id: docSnap.id, ...docSnap.data() })
       })
-      productsList.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds)
+      productsList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
       setProducts(productsList)
     } catch (error) {
       console.error('Ürünler yüklenirken hata:', error)
@@ -61,6 +69,24 @@ function AdminPanel() {
     } catch (error) {
       console.error('Silme hatası:', error)
     }
+  }
+
+  // Bu sayfaya sadece admin hesabı erişebilir. Menüdeki link zaten admin
+  // olmayanlardan gizleniyordu, ama URL'yi doğrudan yazan biri (hatta hiç
+  // giriş yapmamış biri) bu bileşen daha önce user'ı hiç kontrol etmediği
+  // için sayfayı ve onayla/reddet/sil butonlarını görebiliyordu. Asıl
+  // güvenlik burada değil, projeye eklenen firestore.rules dosyasındaki
+  // kurallarla sağlanmalı (rules Firebase Console'dan yayınlanmadan bu
+  // arayüz kontrolü tek başına yeterli değildir).
+  if (!isAdmin) {
+    return (
+      <div className="container text-center py-5">
+        <div className="display-1 mb-3">🔒</div>
+        <h2>Bu sayfaya erişim yetkin yok</h2>
+        <p className="text-muted">Admin paneli sadece yönetici hesabına açıktır.</p>
+        <Link to="/" className="btn btn-pink rounded-pill px-4">Ana Sayfaya Dön</Link>
+      </div>
+    )
   }
 
   if (loading) {

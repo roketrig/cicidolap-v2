@@ -1,8 +1,8 @@
 // src/pages/Messages.jsx
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, query, where, getDocs, orderBy, doc, updateDoc } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { collection, query, where, getDocs, orderBy, doc, writeBatch } from 'firebase/firestore'
+import { db } from '../firebase'
 
 function Messages({ user }) {
   const [messages, setMessages] = useState([])
@@ -24,14 +24,21 @@ function Messages({ user }) {
       )
       const querySnapshot = await getDocs(q)
       const messagesList = []
-      querySnapshot.forEach((doc) => {
-        messagesList.push({ id: doc.id, ...doc.data() })
+      querySnapshot.forEach((docSnap) => {
+        messagesList.push({ id: docSnap.id, ...docSnap.data() })
       })
       setMessages(messagesList)
 
+      // Okunmamış mesajları tek tek değil, tek bir batch ile işaretliyoruz
+      // (eskiden her mesaj için ayrı bir await updateDoc çağrısı vardı —
+      // hem daha yavaş hem de gereksiz sayıda yazma işlemi yapıyordu).
       const unreadMessages = messagesList.filter(m => !m.read)
-      for (const msg of unreadMessages) {
-        await updateDoc(doc(db, 'messages', msg.id), { read: true })
+      if (unreadMessages.length > 0) {
+        const batch = writeBatch(db)
+        unreadMessages.forEach((msg) => {
+          batch.update(doc(db, 'messages', msg.id), { read: true })
+        })
+        await batch.commit()
       }
     } catch (error) {
       console.error('Mesajlar yüklenirken hata:', error)

@@ -1,0 +1,90 @@
+rules_version = '2';
+
+// Cici Dolap - Firestore Güvenlik Kuralları
+//
+// NEDEN GEREKLİ: Uygulamanın admin kontrolü (App.jsx / AdminPanel.jsx /
+// ProductDetail.jsx) sadece arayüzde "admin@cici-dolap.com" e-postasını
+// kontrol ediyor. Bu, hangi butonların gösterileceğini belirler ama
+// Firestore'a doğrudan istek atan biri için hiçbir engel oluşturmaz —
+// gerçek güvenlik burada, sunucu tarafında sağlanmalı. Bu dosyayı
+// Firebase Console > Firestore Database > Rules sekmesine yapıştırıp
+// "Yayınla" demeden hiçbir koruma devreye girmez.
+//
+// Not: Admin yetkisi burada da e-posta karşılaştırmasıyla yapılıyor
+// (custom claim / Cloud Function altyapısı projede yok). Bu, tek admin
+// hesabı için yeterlidir; birden fazla admin/moderatör gerektiğinde
+// Firebase Admin SDK ile custom claim atayan bir Cloud Function'a
+// geçmeniz önerilir.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'admin@cici-dolap.com';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /products/{productId} {
+      // Herkes onaylı ürünleri görebilir; sahibi kendi ürününü (pending/
+      // rejected dahil) görebilir; admin hepsini görebilir.
+      allow read: if resource.data.status == 'approved'
+                  || isOwner(resource.data.userId)
+                  || isAdmin();
+
+      // Ürün eklerken: giriş yapmış olmalı, userId/userEmail kendi
+      // hesabıyla eşleşmeli, ve durum her zaman "pending" olarak
+      // başlamalı (kimse kendi ürününü doğrudan "approved" yapamaz).
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.userEmail == request.auth.token.email
+                    && request.resource.data.status == 'pending';
+
+      // Güncelleme: admin her alanı değiştirebilir (onayla/reddet dahil).
+      // Sahibi kendi ürününü güncelleyebilir ama userId/userEmail/status
+      // alanlarını değiştiremez — yoksa kendi ürününü "approved" yapabilir
+      // ya da başka bir kullanıcıya devredebilirdi.
+      allow update: if isAdmin()
+                    || (
+                      isOwner(resource.data.userId)
+                      && request.resource.data.userId == resource.data.userId
+                      && request.resource.data.userEmail == resource.data.userEmail
+                      && request.resource.data.status == resource.data.status
+                    );
+
+      allow delete: if isAdmin() || isOwner(resource.data.userId);
+    }
+
+    match /messages/{messageId} {
+      // Sadece mesajın göndereni veya alıcısı okuyabilir.
+      allow read: if isSignedIn()
+                  && (request.auth.uid == resource.data.senderId
+                      || request.auth.uid == resource.data.receiverId);
+
+      // Mesaj gönderirken senderId kendi uid'in olmalı, kendine mesaj
+      // atamamalı.
+      allow create: if isSignedIn()
+                    && request.resource.data.senderId == request.auth.uid
+                    && request.resource.data.receiverId != request.auth.uid;
+
+      // Sadece alıcı, sadece "read" alanını değiştirebilir (okundu
+      // işaretleme). Mesaj içeriği sonradan değiştirilemez.
+      allow update: if isSignedIn()
+                    && request.auth.uid == resource.data.receiverId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+      allow delete: if false;
+    }
+
+    // Tanımlanmamış her şey varsayılan olarak kapalı.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

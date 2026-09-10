@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react'
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db } from '../firebase'
 import { Link } from 'react-router-dom'
+import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 
 function Products() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedProvince, setSelectedProvince] = useState('all')
 
   useEffect(() => {
     fetchProducts()
@@ -33,22 +35,39 @@ function Products() {
     }
   }
 
+  const filteredProducts = selectedProvince === 'all'
+    ? products
+    : products.filter(p => p.province === selectedProvince)
+
   return (
     <div className="container py-4">
-      <h1 className="fw-bold text-pink-600 mb-4">🛍️ Tüm Ürünler</h1>
-      
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h1 className="fw-bold text-pink-600 mb-0">🛍️ Tüm Ürünler</h1>
+        <select
+          className="form-select shadow-sm"
+          style={{ maxWidth: '220px' }}
+          value={selectedProvince}
+          onChange={(e) => setSelectedProvince(e.target.value)}
+        >
+          <option value="all">📍 Tüm İller</option>
+          {TURKISH_PROVINCES.map((il) => (
+            <option key={il} value={il}>{il}</option>
+          ))}
+        </select>
+      </div>
+
       {loading ? (
         <div className="text-center py-5">
           <div className="spinner-border text-pink-600"></div>
         </div>
-      ) : products.length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <div className="text-center py-5">
           <div className="display-1 mb-3">📭</div>
-          <h3>Henüz ürün yok</h3>
+          <h3>{selectedProvince === 'all' ? 'Henüz ürün yok' : 'Bu ilde ürün bulunamadı'}</h3>
         </div>
       ) : (
         <div className="row g-4">
-          {products.map((product) => (
+          {filteredProducts.map((product) => (
             <div key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3">
               <div className="card product-card h-100">
                 <div className="product-image d-flex align-items-center justify-content-center bg-light">
@@ -60,7 +79,10 @@ function Products() {
                 </div>
                 <div className="card-body">
                   <h5 className="card-title fw-bold text-truncate">{product.title}</h5>
-                  <p className="card-text small text-muted">{product.category}</p>
+                  <p className="card-text small text-muted">
+                    {product.category}
+                    {product.province && <> · 📍 {product.province}</>}
+                  </p>
                   <div className="d-flex justify-content-between align-items-center mt-2">
                     <span className="fs-5 fw-bold text-pink-600">
                       {product.price === 0 ? '🎁 Bağış' : `${product.price} TL`}

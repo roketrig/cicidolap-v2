@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { ADMIN_EMAIL } from '../constants'
 
 function ProductDetail({ user }) {
   const { id } = useParams()
@@ -22,7 +23,7 @@ function ProductDetail({ user }) {
       setLoading(true)
       const docRef = doc(db, 'products', id)
       const docSnap = await getDoc(docRef)
-      
+
       if (docSnap.exists()) {
         setProduct({ id: docSnap.id, ...docSnap.data() })
       } else {
@@ -110,7 +111,7 @@ function ProductDetail({ user }) {
         <div className="col-lg-6">
           <div className="card shadow-sm border-0 rounded-4 p-4">
             <div className="d-flex justify-content-between align-items-start mb-3">
-              <h1 className="fw-bold text-gray-800">{product.title}</h1>
+              <h1 className="fw-bold text-dark">{product.title}</h1>
               <span className="fs-3 fw-bold text-pink-600">
                 {product.price === 0 ? '🎁 Bağış' : `${product.price} TL`}
               </span>
@@ -123,7 +124,7 @@ function ProductDetail({ user }) {
                  product.condition === 'like-new' ? 'Az Kullanılmış' :
                  product.condition === 'used' ? 'Kullanılmış' : 'Yıpranmış'}
               </span>
-              <span className="badge bg-light text-dark px-3 py-2">📍 {product.city || 'Belirtilmemiş'}</span>
+              <span className="badge bg-light text-dark px-3 py-2">📍 {product.city || product.province || 'Belirtilmemiş'}</span>
             </div>
 
             <hr />
@@ -134,8 +135,20 @@ function ProductDetail({ user }) {
             <hr />
 
             <h6 className="fw-bold">📞 İletişim</h6>
-            <p className="text-muted mb-1">📱 {product.phone || 'Belirtilmemiş'}</p>
-            <p className="text-muted small">👤 {product.userEmail || 'Belirtilmemiş'}</p>
+            {/* İletişim bilgileri artık sadece giriş yapmış kullanıcılara
+                gösteriliyor. Eskiden telefon/e-posta giriş yapmamış herkese
+                (arama motorları dahil) açıktı — spam/scraping riski
+                taşıyordu. */}
+            {user ? (
+              <>
+                <p className="text-muted mb-1">📱 {product.phone || 'Belirtilmemiş'}</p>
+                <p className="text-muted small">👤 {product.userEmail || 'Belirtilmemiş'}</p>
+              </>
+            ) : (
+              <p className="text-muted small mb-0">
+                🔒 İletişim bilgilerini görmek için <Link to="/login" className="text-pink-600 fw-bold">giriş yap</Link>.
+              </p>
+            )}
 
             <hr />
 
@@ -170,6 +183,12 @@ function ProductDetail({ user }) {
               </div>
             )}
 
+            {!user && (
+              <p className="text-muted small">
+                Satıcıya mesaj göndermek için <Link to="/login" className="text-pink-600 fw-bold">giriş yap</Link>.
+              </p>
+            )}
+
             {user && user.uid === product.userId && (
               <div className="alert alert-info mt-3">
                 📌 Bu senin ürünün. Satıcı değilsin.
@@ -177,7 +196,7 @@ function ProductDetail({ user }) {
             )}
 
             <div className="d-flex gap-2 mt-3">
-              {user && (user.uid === product.userId || user.email === 'admin@cici-dolap.com') && (
+              {user && (user.uid === product.userId || user.email === ADMIN_EMAIL) && (
                 <Link to={`/edit-product/${product.id}`} className="btn btn-outline-primary flex-grow-1 rounded-pill">
                   ✏️ Düzenle
                 </Link>
