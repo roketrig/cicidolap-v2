@@ -23,6 +23,7 @@ import Favorites from './pages/Favorites'
 import Gizlilik from './pages/Gizlilik'
 import NotFound from './pages/NotFound'
 import ErrorBoundary from './components/ErrorBoundary'
+import logo from './assets/cicidolap-logo.png'
 
 function Header({ user }) {
   const navigate = useNavigate()
@@ -71,10 +72,9 @@ function Header({ user }) {
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
       <div className="container">
-<Link to="/" className="navbar-brand fw-bold text-pink-600 d-flex align-items-center gap-2">
-  <span className="fs-2">🧸</span>  {/* Yeni Logo: Oyuncak Ayı */}
-  <span>Cici Dolap</span>
-</Link>
+              <Link to="/" className="navbar-brand d-flex align-items-center">
+                <img src={logo} alt="Cici Dolap" className="navbar-logo" />
+              </Link>
         <button
           className="navbar-toggler"
           type="button"
@@ -147,8 +147,7 @@ function Footer() {
       <div className="container">
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
           <div className="d-flex align-items-center gap-2">
-            <span className="fs-3">🧸</span>
-            <span className="cd-footer-brand">Cici Dolap</span>
+            <img src={logo} alt="Cici Dolap" className="footer-logo" />
           </div>
           <p className="mb-0 small" style={{ color: 'rgba(255,255,255,0.75)' }}>
             0-12 yaş çocuk ürünleri için sıcacık ikinci el pazarı 💗

@@ -83,8 +83,7 @@ function Gizlilik() {
         <section className="mb-4">
           <h2 className="h5 fw-bold">7. Başvuru</h2>
           <p className="text-muted mb-0">
-            Taleplerini <strong>cicidolap@…</strong> adresine iletebilirsin. (Yayına
-            almadan önce buraya gerçek başvuru adresini yaz.)
+            Taleplerini <strong>info@cicidolap.com.tr</strong> adresine iletebilirsin.
           </p>
         </section>
 

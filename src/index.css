@@ -84,9 +84,12 @@ h1, h2, h3, h4, h5, h6,
   -webkit-backdrop-filter: blur(10px);
 }
 
-.navbar-brand {
-  font-size: 1.4rem;
-  letter-spacing: 0.2px;
+/* Marka logosu (src/assets/cicidolap-logo.png) — navbar'da sabit yükseklik,
+   oran korunarak. */
+.navbar-logo {
+  height: 34px;
+  width: auto;
+  display: block;
 }
 
 .navbar .nav-link {
@@ -600,11 +603,10 @@ h1, h2, h3, h4, h5, h6,
   margin-top: 3rem;
 }
 
-.cd-footer .cd-footer-brand {
-  font-family: 'Baloo 2', sans-serif;
-  font-weight: 700;
-  font-size: 1.25rem;
-  color: white;
+.footer-logo {
+  height: 28px;
+  width: auto;
+  display: block;
 }
 
 .cd-footer hr {
