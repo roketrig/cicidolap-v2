@@ -485,53 +485,167 @@ h1, h2, h3, h4, h5, h6,
   100% { transform: translate(0, -560px) rotate(320deg) scale(0.6); opacity: 0; }
 }
 
-/* Kategori çubuğu + ürün kartları görünürken yumuşak giriş */
-.category-bar { animation: cd-fade-up 0.5s ease 0.4s both; }
-.category-chip { transition: transform 0.15s ease, box-shadow 0.2s ease; font-size: 0.92rem; }
-.category-chip:active { transform: scale(0.95); }
-
-/* Yaş grubu filtresi — kategori çubuğunun sonunda, hap butonlarla uyumlu */
-.age-filter-select {
-  border: 1.5px solid var(--cd-secondary);
-  color: var(--cd-secondary-dark);
-  background: #fff;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  cursor: pointer;
+/* ============================================
+   🗂️ KATEGORİ VİTRİNİ (anasayfa)
+   ============================================ */
+/* Yatayda kayan küçük kategori ikonları — anasayfayı kalabalık etmeden
+   "Tüm Ürünler"deki tam filtre paneline (kategori/alt kategori/fiyat/yaş)
+   yönlendiriyor. */
+.category-showcase {
+  display: flex;
+  gap: 0.9rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.15rem 0.75rem;
+  scroll-snap-type: x proximity;
+  animation: cd-fade-up 0.5s ease 0.35s both;
 }
 
-.age-filter-select:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(138, 124, 214, 0.2);
+.category-showcase::-webkit-scrollbar {
+  height: 5px;
 }
 
-/* Alt kategori çubuğu — bir ana kategori seçilince altında açılır (ör.
-   Giyim & Tekstil → Pantolon, Tulum...). Ana kategori haplarından daha
-   küçük/soluk, ikinci seviye bir filtre olduğu belli olsun diye. */
-.subcategory-bar {
-  animation: cd-fade-up 0.35s ease both;
+.category-tile {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 84px;
+  text-decoration: none;
+  color: var(--cd-text);
 }
 
-.subcategory-chip {
-  border: 1.5px solid var(--cd-border);
+.category-tile-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
   background: var(--cd-surface);
+  border: 1.5px solid var(--cd-border);
+  box-shadow: var(--cd-shadow-sm);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.category-tile:hover .category-tile-icon {
+  transform: translateY(-3px);
+  border-color: var(--cd-primary);
+  box-shadow: var(--cd-shadow-md);
+}
+
+.category-tile-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
   color: var(--cd-text-muted);
+}
+
+/* ============================================
+   🧭 FİLTRE PANELİ (Tüm Ürünler — klasik sol panel)
+   ============================================ */
+.filter-sidebar {
+  background: var(--cd-surface);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius-md);
+  padding: 1.1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.filter-group {
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--cd-border);
+}
+
+.filter-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.filter-group-title {
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cd-text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.filter-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.filter-list-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--cd-radius-sm);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.88rem;
   font-weight: 600;
+  color: var(--cd-text);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.filter-list-btn:hover {
+  background: var(--cd-bg);
+}
+
+.filter-list-btn.is-active {
+  background: #ffe9f0;
+  color: var(--cd-primary-dark);
+  font-weight: 800;
+}
+
+.filter-sublist {
+  list-style: none;
+  margin: 0.1rem 0 0.3rem 0.6rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--cd-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.filter-list-btn--sub {
   font-size: 0.82rem;
-  transition: all 0.15s ease;
+  font-weight: 500;
+  padding: 0.3rem 0.5rem;
 }
 
-.subcategory-chip:hover {
-  border-color: var(--cd-secondary);
+.filter-list-btn--sub.is-active {
+  background: #f1edfd;
   color: var(--cd-secondary-dark);
+  font-weight: 700;
 }
 
-.subcategory-chip.is-active {
-  background: var(--cd-secondary);
-  border-color: var(--cd-secondary);
-  color: #fff;
+.filter-clear-btn {
+  width: 100%;
+  border: 1.5px dashed var(--cd-primary);
+  background: none;
+  color: var(--cd-primary-dark);
+  font-weight: 700;
+  font-size: 0.82rem;
+  border-radius: var(--cd-radius-sm);
+  padding: 0.45rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.filter-clear-btn:hover {
+  background: #fff4f8;
 }
 
 #products-list .row > [class*="col-"] {

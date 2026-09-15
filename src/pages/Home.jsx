@@ -4,23 +4,19 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '../firebase'
 import { Link } from 'react-router-dom'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
-import { CATEGORIES, AGE_GROUPS, subcategoriesFor } from '../data/categories'
+import { CATEGORIES } from '../data/categories'
 import ProductCard from '../components/ProductCard'
 import FloatingBalloons from '../components/FloatingBalloons'
 import { useFavorites } from '../hooks/useFavorites'
 import { displayName } from '../utils'
 
 const PAGE_SIZE = 24
-const CATEGORY_CHIPS = [{ id: 'all', label: 'Tümü', emoji: '✨' }, ...CATEGORIES]
 
 function Home({ user }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [pageSize, setPageSize] = useState(PAGE_SIZE)
   const [hasMore, setHasMore] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [selectedSubcategory, setSelectedSubcategory] = useState('all')
-  const [selectedAgeGroup, setSelectedAgeGroup] = useState('all')
   const [selectedProvince, setSelectedProvince] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const { favoriteIds, toggleFavorite } = useFavorites(user)
@@ -54,31 +50,20 @@ function Home({ user }) {
     }
   }
 
+  // Anasayfa sade tutuluyor: sadece arama + il. Kategori/alt kategori/yaş/
+  // fiyat aralığı gibi detaylı filtreler artık "Tüm Ürünler" sayfasındaki
+  // klasik sol filtre panelinde (bkz. Products.jsx) — anasayfada hepsini
+  // göstermek çok kalabalık duruyordu.
   const filteredProducts = products.filter(product => {
-    // Satılmış ürünler ana vitrinde görünmüyor (kendi ürünlerin Profilim
-    // sayfasında hâlâ görünür ve işaretini geri alabilirsin).
     if (product.sold) return false
-    const categoryMatch = selectedCategory === 'all' || product.category === selectedCategory
-    const subcategoryMatch = selectedSubcategory === 'all' || product.subcategory === selectedSubcategory
-    const ageGroupMatch = selectedAgeGroup === 'all' || product.ageGroup === selectedAgeGroup
     const provinceMatch = selectedProvince === 'all' || product.province === selectedProvince
     const searchMatch = searchTerm === '' ||
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    return categoryMatch && subcategoryMatch && ageGroupMatch && provinceMatch && searchMatch
+    return provinceMatch && searchMatch
   })
 
-  const hasActiveFilters = Boolean(
-    searchTerm || selectedProvince !== 'all' || selectedCategory !== 'all' ||
-    selectedSubcategory !== 'all' || selectedAgeGroup !== 'all'
-  )
-
-  const handleSelectCategory = (id) => {
-    setSelectedCategory(id)
-    setSelectedSubcategory('all') // farklı kategoriye geçince eski alt kategori anlamsız kalır
-  }
-
-  const subcategoryChips = selectedCategory !== 'all' ? subcategoriesFor(selectedCategory) : []
+  const hasActiveFilters = Boolean(searchTerm || selectedProvince !== 'all')
 
   return (
     <div>
@@ -178,55 +163,17 @@ function Home({ user }) {
         )}
       </div>
 
-      {/* KATEGORİ BUTONLARI + YAŞ GRUBU */}
+      {/* KATEGORİ VİTRİNİ — dokunca /products'a o kategoriyle gidiyor.
+          Detaylı filtreleme (alt kategori, yaş, fiyat) orada. */}
       <div className="container mt-4">
-        <div className="category-bar d-flex flex-wrap gap-2 justify-content-center align-items-center">
-          {CATEGORY_CHIPS.map((cat) => {
-            const active = selectedCategory === cat.id
-            return (
-              <button
-                key={cat.id}
-                onClick={() => handleSelectCategory(cat.id)}
-                className={`btn rounded-pill px-3 py-2 category-chip ${active ? 'btn-pink text-white' : 'btn-outline-secondary'}`}
-              >
-                {cat.emoji} {cat.label}
-              </button>
-            )
-          })}
-          <select
-            className="age-filter-select"
-            value={selectedAgeGroup}
-            onChange={(e) => setSelectedAgeGroup(e.target.value)}
-            aria-label="Yaş grubuna göre filtrele"
-          >
-            <option value="all">🍼 Tüm Yaşlar</option>
-            {AGE_GROUPS.map((age) => (
-              <option key={age.id} value={age.id}>{age.label}</option>
-            ))}
-          </select>
+        <div className="category-showcase">
+          {CATEGORIES.map((cat) => (
+            <Link key={cat.id} to={`/products?category=${cat.id}`} className="category-tile">
+              <span className="category-tile-icon">{cat.emoji}</span>
+              <span className="category-tile-label">{cat.label}</span>
+            </Link>
+          ))}
         </div>
-
-        {/* Alt kategoriler — bir ana kategori seçilince altında açılır
-            (ör. "Giyim & Tekstil" → Pantolon, Tulum, Mont...). */}
-        {subcategoryChips.length > 0 && (
-          <div className="subcategory-bar d-flex flex-wrap gap-2 justify-content-center mt-2">
-            <button
-              onClick={() => setSelectedSubcategory('all')}
-              className={`btn btn-sm rounded-pill px-3 py-1 subcategory-chip ${selectedSubcategory === 'all' ? 'is-active' : ''}`}
-            >
-              Tümü
-            </button>
-            {subcategoryChips.map((sub) => (
-              <button
-                key={sub.id}
-                onClick={() => setSelectedSubcategory(sub.id)}
-                className={`btn btn-sm rounded-pill px-3 py-1 subcategory-chip ${selectedSubcategory === sub.id ? 'is-active' : ''}`}
-              >
-                {sub.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ÜRÜN LİSTESİ */}
@@ -243,7 +190,7 @@ function Home({ user }) {
             <h3>{hasActiveFilters ? 'Aradığın kriterde ürün bulunamadı' : 'Henüz ürün yok'}</h3>
             <p className="text-muted">
               {hasActiveFilters ? (
-                'Farklı bir kelime, kategori ya da il ile tekrar dene'
+                'Farklı bir kelime ya da il ile tekrar dene'
               ) : (
                 <>
                   İlk ürünü sen ekle!
