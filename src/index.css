@@ -187,21 +187,25 @@ h1, h2, h3, h4, h5, h6,
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(120% 90% at 12% 0%, #fff2f7 0%, rgba(255, 242, 247, 0) 55%),
-    radial-gradient(120% 90% at 92% 20%, #eef0ff 0%, rgba(238, 240, 255, 0) 50%),
-    linear-gradient(165deg, #fff8f3 0%, #fdeef4 45%, #f0eefb 78%, #e9f9f5 100%);
+    radial-gradient(120% 90% at 12% 0%, #ffe0ec 0%, rgba(255, 224, 236, 0) 58%),
+    radial-gradient(110% 85% at 92% 15%, #e2ddff 0%, rgba(226, 221, 255, 0) 55%),
+    radial-gradient(90% 70% at 50% 100%, #d3fbf0 0%, rgba(211, 251, 240, 0) 60%),
+    linear-gradient(165deg, #fff7ef 0%, #fde3ee 42%, #ece6fc 76%, #dff9f1 100%);
   padding: clamp(2.75rem, 8vw, 5rem) 0 clamp(3.5rem, 7vw, 4.75rem);
 }
 
 /* Yumuşak, bulanık renk lekeleri — statik varlık indirmeden dekoratif
-   derinlik katıyor, performans maliyeti yok. */
+   derinlik katıyor, performans maliyeti yok. Eskiden 2 tane, daha soluktu;
+   müşteri isteği üzerine ("çok renkli çok parlak") bir tane daha eklendi
+   ve doygunluk artırıldı. */
 .hero-gradient::before,
-.hero-gradient::after {
+.hero-gradient::after,
+.hero-gradient .hero-blob-3 {
   content: '';
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.45;
+  filter: blur(55px);
+  opacity: 0.6;
   z-index: 0;
   pointer-events: none;
 }
@@ -224,9 +228,19 @@ h1, h2, h3, h4, h5, h6,
   animation: cd-float 12s ease-in-out infinite reverse;
 }
 
+.hero-blob-3 {
+  width: 260px;
+  height: 260px;
+  background: #ffc94d;
+  top: 20%;
+  right: 8%;
+  animation: cd-float 10.5s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
 .hero-content {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   max-width: 680px;
 }
 
@@ -425,10 +439,100 @@ h1, h2, h3, h4, h5, h6,
   to { background-position: 100% center; }
 }
 
+/* ============================================
+   🎈 UÇUŞAN BALONLAR (anasayfa hero'su)
+   ============================================ */
+.hero-balloons {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.balloon {
+  position: absolute;
+  left: var(--left, 10%);
+  bottom: -70px;
+  width: var(--size, 40px);
+  height: calc(var(--size, 40px) * 1.35);
+  animation: cd-balloon-rise var(--duration, 16s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.balloon--sparkle {
+  height: var(--size, 14px);
+  animation-name: cd-sparkle-rise;
+}
+
+@keyframes cd-balloon-rise {
+  0%   { transform: translate(0, 0) rotate(-4deg); opacity: 0; }
+  8%   { opacity: 0.9; }
+  25%  { transform: translate(var(--sway, 16px), -140px) rotate(3deg); }
+  50%  { transform: translate(calc(var(--sway, 16px) * -0.7), -300px) rotate(-3deg); }
+  75%  { transform: translate(var(--sway, 16px), -460px) rotate(3deg); }
+  92%  { opacity: 0.9; }
+  100% { transform: translate(0, -640px) rotate(-2deg); opacity: 0; }
+}
+
+@keyframes cd-sparkle-rise {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(0.6); opacity: 0; }
+  15%  { opacity: 0.85; }
+  50%  { transform: translate(var(--sway, 10px), -260px) rotate(160deg) scale(1); opacity: 0.85; }
+  85%  { opacity: 0.6; }
+  100% { transform: translate(0, -560px) rotate(320deg) scale(0.6); opacity: 0; }
+}
+
 /* Kategori çubuğu + ürün kartları görünürken yumuşak giriş */
 .category-bar { animation: cd-fade-up 0.5s ease 0.4s both; }
-.category-chip { transition: transform 0.15s ease, box-shadow 0.2s ease; }
+.category-chip { transition: transform 0.15s ease, box-shadow 0.2s ease; font-size: 0.92rem; }
 .category-chip:active { transform: scale(0.95); }
+
+/* Yaş grubu filtresi — kategori çubuğunun sonunda, hap butonlarla uyumlu */
+.age-filter-select {
+  border: 1.5px solid var(--cd-secondary);
+  color: var(--cd-secondary-dark);
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+.age-filter-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(138, 124, 214, 0.2);
+}
+
+/* Alt kategori çubuğu — bir ana kategori seçilince altında açılır (ör.
+   Giyim & Tekstil → Pantolon, Tulum...). Ana kategori haplarından daha
+   küçük/soluk, ikinci seviye bir filtre olduğu belli olsun diye. */
+.subcategory-bar {
+  animation: cd-fade-up 0.35s ease both;
+}
+
+.subcategory-chip {
+  border: 1.5px solid var(--cd-border);
+  background: var(--cd-surface);
+  color: var(--cd-text-muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  transition: all 0.15s ease;
+}
+
+.subcategory-chip:hover {
+  border-color: var(--cd-secondary);
+  color: var(--cd-secondary-dark);
+}
+
+.subcategory-chip.is-active {
+  background: var(--cd-secondary);
+  border-color: var(--cd-secondary);
+  color: #fff;
+}
 
 #products-list .row > [class*="col-"] {
   animation: cd-fade-up 0.45s ease both;

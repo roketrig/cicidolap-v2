@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { auth, db } from '../firebase'
 import { uploadProductImage, deleteProductImage } from '../imageUpload'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+import { CATEGORIES, AGE_GROUPS, subcategoriesFor } from '../data/categories'
 import { CONTACT_PREF, KVKK_CONSENT_LABEL, saveListingPhone } from '../contact'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -15,6 +16,8 @@ function AddProduct() {
   const [formData, setFormData] = useState({
     title: '',
     category: '',
+    subcategory: '',
+    ageGroup: '',
     price: '',
     description: '',
     condition: 'new',
@@ -38,14 +41,6 @@ function AddProduct() {
     }
   }, [imagePreview])
 
-  const categories = [
-    'Yenidoğan (0-3 ay)',
-    'Bebek (3-12 ay)',
-    'Yürüme (1-2 yaş)',
-    'Çocuk (3-6 yaş)',
-    'Okul (7-12 yaş)'
-  ]
-
   const conditions = [
     { value: 'new', label: 'Yeni (Kullanılmadı)' },
     { value: 'like-new', label: 'Az Kullanılmış' },
@@ -55,8 +50,17 @@ function AddProduct() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => {
+      // Kategori değişince eski kategorinin alt kategorisi anlamsız kalır
+      // (ör. "Giyim → Pantolon" seçiliyken kategoriyi "Oyuncak"a çekince).
+      if (name === 'category') {
+        return { ...prev, category: value, subcategory: '' }
+      }
+      return { ...prev, [name]: value }
+    })
   }
+
+  const subcategoryOptions = subcategoriesFor(formData.category)
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]
@@ -158,6 +162,8 @@ function AddProduct() {
       setFormData({
         title: '',
         category: '',
+        subcategory: '',
+        ageGroup: '',
         price: '',
         description: '',
         condition: 'new',
@@ -250,22 +256,58 @@ function AddProduct() {
                 />
               </div>
 
-              {/* Kategori */}
-              <div className="mb-3">
-                <label className="form-label fw-semibold">Kategori <span className="text-danger">*</span></label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="form-select"
-                  required
-                >
-                  <option value="">Kategori seç</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+              {/* Kategori ve Yaş Grubu */}
+              <div className="row g-3 mb-3">
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Kategori <span className="text-danger">*</span></label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    className="form-select"
+                    required
+                  >
+                    <option value="">Kategori seç</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.emoji} {cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Yaş Grubu <span className="text-danger">*</span></label>
+                  <select
+                    name="ageGroup"
+                    value={formData.ageGroup}
+                    onChange={handleChange}
+                    className="form-select"
+                    required
+                  >
+                    <option value="">Yaş grubu seç</option>
+                    {AGE_GROUPS.map((age) => (
+                      <option key={age.id} value={age.id}>{age.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {/* Alt Kategori — sadece seçilen kategorinin alt kategorisi varsa */}
+              {subcategoryOptions.length > 0 && (
+                <div className="mb-3">
+                  <label className="form-label fw-semibold">Alt Kategori <span className="text-danger">*</span></label>
+                  <select
+                    name="subcategory"
+                    value={formData.subcategory}
+                    onChange={handleChange}
+                    className="form-select"
+                    required
+                  >
+                    <option value="">Alt kategori seç</option>
+                    {subcategoryOptions.map((sub) => (
+                      <option key={sub.id} value={sub.id}>{sub.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Fiyat ve Durum */}
               <div className="row g-3">

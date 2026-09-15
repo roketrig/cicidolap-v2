@@ -6,6 +6,7 @@ import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { deleteProductImage } from '../imageUpload'
 import { removeListingPhone } from '../contact'
+import { subcategoryLabel } from '../data/categories'
 
 function AdminPanel({ user }) {
   const [products, setProducts] = useState([])
@@ -154,7 +155,7 @@ function AdminPanel({ user }) {
                     </div>
                     <small className="text-muted">{product.userEmail}</small>
                   </td>
-                  <td>{product.category}</td>
+                  <td>{subcategoryLabel(product.category, product.subcategory)}</td>
                   <td className="fw-bold text-pink-600">
                     {product.price === 0 ? '🎁 Bağış' : `${product.price} TL`}
                   </td>

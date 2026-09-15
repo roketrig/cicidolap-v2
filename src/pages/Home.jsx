@@ -4,11 +4,14 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '../firebase'
 import { Link } from 'react-router-dom'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
+import { CATEGORIES, AGE_GROUPS, subcategoriesFor } from '../data/categories'
 import ProductCard from '../components/ProductCard'
+import FloatingBalloons from '../components/FloatingBalloons'
 import { useFavorites } from '../hooks/useFavorites'
 import { displayName } from '../utils'
 
 const PAGE_SIZE = 24
+const CATEGORY_CHIPS = [{ id: 'all', label: 'Tümü', emoji: '✨' }, ...CATEGORIES]
 
 function Home({ user }) {
   const [products, setProducts] = useState([])
@@ -16,18 +19,11 @@ function Home({ user }) {
   const [pageSize, setPageSize] = useState(PAGE_SIZE)
   const [hasMore, setHasMore] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedSubcategory, setSelectedSubcategory] = useState('all')
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState('all')
   const [selectedProvince, setSelectedProvince] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const { favoriteIds, toggleFavorite } = useFavorites(user)
-
-  const categories = [
-    'Tümü',
-    'Yenidoğan (0-3 ay)',
-    'Bebek (3-12 ay)',
-    'Yürüme (1-2 yaş)',
-    'Çocuk (3-6 yaş)',
-    'Okul (7-12 yaş)'
-  ]
 
   useEffect(() => {
     fetchProducts(pageSize)
@@ -63,17 +59,33 @@ function Home({ user }) {
     // sayfasında hâlâ görünür ve işaretini geri alabilirsin).
     if (product.sold) return false
     const categoryMatch = selectedCategory === 'all' || product.category === selectedCategory
+    const subcategoryMatch = selectedSubcategory === 'all' || product.subcategory === selectedSubcategory
+    const ageGroupMatch = selectedAgeGroup === 'all' || product.ageGroup === selectedAgeGroup
     const provinceMatch = selectedProvince === 'all' || product.province === selectedProvince
     const searchMatch = searchTerm === '' ||
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    return categoryMatch && provinceMatch && searchMatch
+    return categoryMatch && subcategoryMatch && ageGroupMatch && provinceMatch && searchMatch
   })
+
+  const hasActiveFilters = Boolean(
+    searchTerm || selectedProvince !== 'all' || selectedCategory !== 'all' ||
+    selectedSubcategory !== 'all' || selectedAgeGroup !== 'all'
+  )
+
+  const handleSelectCategory = (id) => {
+    setSelectedCategory(id)
+    setSelectedSubcategory('all') // farklı kategoriye geçince eski alt kategori anlamsız kalır
+  }
+
+  const subcategoryChips = selectedCategory !== 'all' ? subcategoriesFor(selectedCategory) : []
 
   return (
     <div>
       {/* HERO BÖLÜMÜ */}
       <div className="hero-gradient text-center">
+        <span className="hero-blob-3" aria-hidden="true" />
+        <FloatingBalloons />
         <div className="container hero-content">
           {user ? (
             <>
@@ -159,29 +171,62 @@ function Home({ user }) {
             </select>
           </div>
         </div>
-        {(searchTerm || selectedProvince !== 'all') && (
+        {hasActiveFilters && (
           <p className="text-muted mt-3 text-center small">
             {filteredProducts.length} sonuç bulundu
           </p>
         )}
       </div>
 
-      {/* KATEGORİ BUTONLARI */}
+      {/* KATEGORİ BUTONLARI + YAŞ GRUBU */}
       <div className="container mt-4">
-        <div className="category-bar d-flex flex-wrap gap-2 justify-content-center">
-          {categories.map((kat) => {
-            const active = (kat === 'Tümü' && selectedCategory === 'all') || selectedCategory === kat
+        <div className="category-bar d-flex flex-wrap gap-2 justify-content-center align-items-center">
+          {CATEGORY_CHIPS.map((cat) => {
+            const active = selectedCategory === cat.id
             return (
               <button
-                key={kat}
-                onClick={() => setSelectedCategory(kat === 'Tümü' ? 'all' : kat)}
-                className={`btn rounded-pill px-4 py-2 category-chip ${active ? 'btn-pink text-white' : 'btn-outline-secondary'}`}
+                key={cat.id}
+                onClick={() => handleSelectCategory(cat.id)}
+                className={`btn rounded-pill px-3 py-2 category-chip ${active ? 'btn-pink text-white' : 'btn-outline-secondary'}`}
               >
-                {kat}
+                {cat.emoji} {cat.label}
               </button>
             )
           })}
+          <select
+            className="age-filter-select"
+            value={selectedAgeGroup}
+            onChange={(e) => setSelectedAgeGroup(e.target.value)}
+            aria-label="Yaş grubuna göre filtrele"
+          >
+            <option value="all">🍼 Tüm Yaşlar</option>
+            {AGE_GROUPS.map((age) => (
+              <option key={age.id} value={age.id}>{age.label}</option>
+            ))}
+          </select>
         </div>
+
+        {/* Alt kategoriler — bir ana kategori seçilince altında açılır
+            (ör. "Giyim & Tekstil" → Pantolon, Tulum, Mont...). */}
+        {subcategoryChips.length > 0 && (
+          <div className="subcategory-bar d-flex flex-wrap gap-2 justify-content-center mt-2">
+            <button
+              onClick={() => setSelectedSubcategory('all')}
+              className={`btn btn-sm rounded-pill px-3 py-1 subcategory-chip ${selectedSubcategory === 'all' ? 'is-active' : ''}`}
+            >
+              Tümü
+            </button>
+            {subcategoryChips.map((sub) => (
+              <button
+                key={sub.id}
+                onClick={() => setSelectedSubcategory(sub.id)}
+                className={`btn btn-sm rounded-pill px-3 py-1 subcategory-chip ${selectedSubcategory === sub.id ? 'is-active' : ''}`}
+              >
+                {sub.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ÜRÜN LİSTESİ */}
@@ -195,10 +240,10 @@ function Home({ user }) {
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-5">
             <div className="fs-1 mb-3">📭</div>
-            <h3>{searchTerm || selectedProvince !== 'all' ? 'Aradığın kriterde ürün bulunamadı' : 'Henüz ürün yok'}</h3>
+            <h3>{hasActiveFilters ? 'Aradığın kriterde ürün bulunamadı' : 'Henüz ürün yok'}</h3>
             <p className="text-muted">
-              {searchTerm || selectedProvince !== 'all' ? (
-                'Farklı bir kelime ya da il ile tekrar dene'
+              {hasActiveFilters ? (
+                'Farklı bir kelime, kategori ya da il ile tekrar dene'
               ) : (
                 <>
                   İlk ürünü sen ekle!

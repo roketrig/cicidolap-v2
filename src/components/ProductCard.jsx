@@ -5,6 +5,7 @@
 // markup tekrar tekrar yazılmıyor.
 import React, { memo } from 'react'
 import { Link } from 'react-router-dom'
+import { subcategoryLabel } from '../data/categories'
 
 // Favori kalbi artık emoji değil, SVG. Emoji (🤍 / ❤️) bazı Windows/Android
 // sürümlerinde neredeyse aynı görünüyordu; SVG ile "dolu kırmızı" ve "boş
@@ -71,7 +72,7 @@ function ProductCard({ product, isFavorited, onToggleFavorite }) {
           </span>
         </div>
         <p className="card-text small text-muted">
-          {product.category}
+          {subcategoryLabel(product.category, product.subcategory)}
           {product.province && <> · 📍 {product.province}</>}
         </p>
         <div className="d-flex justify-content-between align-items-center mt-2">

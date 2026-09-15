@@ -7,6 +7,7 @@ import { ADMIN_EMAIL } from '../constants'
 import { useFavorites } from '../hooks/useFavorites'
 import { startConversation } from '../chat'
 import { nameOrEmail } from '../utils'
+import { subcategoryLabel, ageGroupLabel } from '../data/categories'
 import { CONTACT_PREF, fetchListingPhone, formatPhone, telHref } from '../contact'
 
 function ProductDetail({ user }) {
@@ -194,7 +195,10 @@ function ProductDetail({ user }) {
 
             <div className="d-flex flex-wrap gap-2 mb-3">
               {product.sold && <span className="badge bg-dark px-3 py-2">Satıldı</span>}
-              <span className="badge bg-light text-dark px-3 py-2">{product.category}</span>
+              <span className="badge bg-light text-dark px-3 py-2">{subcategoryLabel(product.category, product.subcategory)}</span>
+              {product.ageGroup && (
+                <span className="badge bg-light text-dark px-3 py-2">{ageGroupLabel(product.ageGroup)}</span>
+              )}
               <span className={`badge badge-${product.condition} px-3 py-2`}>
                 {product.condition === 'new' ? 'Yeni' :
                  product.condition === 'like-new' ? 'Az Kullanılmış' :
