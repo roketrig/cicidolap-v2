@@ -31,6 +31,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Yönetici tarafından kısıtlanmış (yasaklı) hesap mı? (bkz. "bans")
+    function isBanned() {
+      return isSignedIn()
+             && exists(/databases/$(database)/documents/bans/$(request.auth.uid));
+    }
+
+    // "blocker", "blocked" kullanıcısını engellemiş mi? (bkz. "blocks")
+    function hasBlocked(blocker, blocked) {
+      return exists(/databases/$(database)/documents/blocks/$(blocker + '_' + blocked));
+    }
+
     match /products/{productId} {
       // Herkes onaylı ürünleri görebilir; sahibi kendi ürününü (pending/
       // rejected dahil) görebilir; admin hepsini görebilir.
@@ -49,6 +60,7 @@ service cloud.firestore {
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.userEmail == request.auth.token.email
                       && request.resource.data.status == 'pending'
+                      && !isBanned()
                     );
 
       // Güncelleme: admin her alanı değiştirebilir (onayla/reddet dahil).
@@ -91,7 +103,9 @@ service cloud.firestore {
                     && request.resource.data.buyerId != request.resource.data.sellerId
                     && request.resource.data.participants.hasOnly([request.resource.data.sellerId, request.resource.data.buyerId])
                     && request.resource.data.participants.hasAll([request.resource.data.sellerId, request.resource.data.buyerId])
-                    && cid == request.resource.data.productId + '__' + request.resource.data.buyerId;
+                    && cid == request.resource.data.productId + '__' + request.resource.data.buyerId
+                    && !isBanned()
+                    && !hasBlocked(request.resource.data.sellerId, request.auth.uid);
 
       // Güncelleme: sadece taraflar; ve yalnızca "son mesaj özeti" +
       // okundu bilgisi alanları değişebilir. Kimlik alanları (participants
@@ -110,9 +124,20 @@ service cloud.firestore {
 
         allow read: if isSignedIn() && request.auth.uid in participants();
 
+        // Karşı taraf bu kullanıcıyı engellediyse (ya da kullanıcı yasaklıysa)
+        // mesaj yazılamaz.
+        function recipientId() {
+          return get(/databases/$(database)/documents/conversations/$(cid)).data.sellerId == request.auth.uid
+            ? get(/databases/$(database)/documents/conversations/$(cid)).data.buyerId
+            : get(/databases/$(database)/documents/conversations/$(cid)).data.sellerId;
+        }
+
         allow create: if isSignedIn()
                       && request.auth.uid == request.resource.data.senderId
                       && request.auth.uid in participants()
+                      && !isBanned()
+                      && !hasBlocked(recipientId(), request.auth.uid)
+                      && !hasBlocked(request.auth.uid, recipientId())
                       && request.resource.data.text is string
                       && request.resource.data.text.size() > 0
                       && request.resource.data.text.size() <= 2000;
@@ -151,6 +176,43 @@ service cloud.firestore {
       allow update: if false;
 
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ŞİKAYETLER (Google Play UGC politikası + App Store 1.2). Giriş yapmış
+    // herkes şikayet oluşturabilir, ama kayıtları sadece admin okuyup
+    // yönetebilir. Kullanıcı kendi şikayetini sonradan değiştiremez.
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.type in ['listing', 'user', 'conversation']
+                    && request.resource.data.targetId is string
+                    && request.resource.data.reason is string
+                    && request.resource.data.status == 'open'
+                    && (!('details' in request.resource.data) || request.resource.data.details.size() <= 1000);
+
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ENGELLEMELER: doküman kimliği "{engelleyen}_{engellenen}". Yalnızca
+    // engelleyen kendi kayıtlarını okuyabilir/oluşturabilir/silebilir.
+    // (Engellenen kişi kaydı göremez; mesaj kuralları exists() ile kontrol eder.)
+    match /blocks/{blockId} {
+      allow read: if isSignedIn() && resource.data.blockerId == request.auth.uid;
+
+      allow create: if isSignedIn()
+                    && request.resource.data.blockerId == request.auth.uid
+                    && request.resource.data.blockedId != request.auth.uid
+                    && blockId == request.auth.uid + '_' + request.resource.data.blockedId;
+
+      allow update: if false;
+
+      allow delete: if isSignedIn() && resource.data.blockerId == request.auth.uid;
+    }
+
+    // YASAKLAR: admin yazar; kullanıcı yalnızca kendi kaydının varlığını görür.
+    match /bans/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
     }
 
     // Tanımlanmamış her şey varsayılan olarak kapalı.

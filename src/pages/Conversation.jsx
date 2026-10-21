@@ -8,6 +8,9 @@ import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { addMessage, markConversationRead, otherParty } from '../chat'
+import { useSafety } from '../context/SafetyContext'
+import ReportModal from '../components/ReportModal'
+import Icon from '../components/Icon'
 
 function formatTime(ts) {
   const d = ts?.toDate?.()
@@ -19,6 +22,8 @@ function formatTime(ts) {
 
 function Conversation({ user }) {
   const { conversationId } = useParams()
+  const { isBlocked, block, unblock, isBanned } = useSafety()
+  const [reportOpen, setReportOpen] = useState(false)
   const [conv, setConv] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
@@ -125,6 +130,18 @@ function Conversation({ user }) {
     }
   }
 
+  const toggleBlock = async (other) => {
+    const blocked = isBlocked(other.id)
+    if (!blocked && !window.confirm(`${other.name} adlı kullanıcıyı engellemek istiyor musun? Sana mesaj gönderemez ve ilanlarını görmezsin.`)) return
+    try {
+      if (blocked) await unblock(other.id)
+      else await block(other.id, other.name)
+    } catch (err) {
+      console.error('Engelleme işlemi başarısız:', err)
+      setError('İşlem yapılamadı. Lütfen tekrar dene.')
+    }
+  }
+
   if (!user) {
     return (
       <div className="container text-center py-5">
@@ -154,9 +171,10 @@ function Conversation({ user }) {
   }
 
   const other = otherParty(conv, user.uid)
+  const otherBlocked = isBlocked(other.id)
 
   return (
-    <div className="container py-4">
+    <div className="container py-2 py-md-4">
       <div className="chat-window card shadow-sm border-0 rounded-4 overflow-hidden mx-auto">
         {/* Başlık */}
         <div className="chat-header d-flex align-items-center gap-3 p-3 border-bottom">
@@ -175,6 +193,14 @@ function Conversation({ user }) {
             <small className="text-muted">
               {other.myRole === 'seller' ? '🛒 Alıcı' : '🏷️ Satıcı'}: {other.name}
             </small>
+          </div>
+          <div className="chat-tools flex-shrink-0">
+            <button type="button" onClick={() => setReportOpen(true)} aria-label="Şikayet et" title="Şikayet et">
+              <Icon name="flag" size={18} />
+            </button>
+            <button type="button" onClick={() => toggleBlock(other)} aria-label={otherBlocked ? 'Engeli kaldır' : 'Engelle'} title={otherBlocked ? 'Engeli kaldır' : 'Engelle'}>
+              <Icon name="block" size={18} />
+            </button>
           </div>
         </div>
 
@@ -202,6 +228,14 @@ function Conversation({ user }) {
         {error && (
           <div className="alert alert-danger py-2 mb-0 rounded-0 small">{error}</div>
         )}
+        {otherBlocked ? (
+          <div className="p-3 border-top text-center small text-muted">
+            Bu kullanıcıyı engelledin.{' '}
+            <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => toggleBlock(other)}>Engeli kaldır</button>
+          </div>
+        ) : isBanned ? (
+          <div className="p-3 border-top text-center small text-muted">Hesabın kısıtlandığı için mesaj gönderemezsin.</div>
+        ) : (
         <form onSubmit={handleSend} className="chat-input d-flex gap-2 p-3 border-top">
           <input
             type="text"
@@ -216,7 +250,19 @@ function Conversation({ user }) {
             {sending ? '...' : '📤'}
           </button>
         </form>
+        )}
       </div>
+
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        user={user}
+        type="conversation"
+        targetId={conversationId}
+        targetOwnerId={other.id}
+        evidence={messages.slice(-20).map((m) => ({ senderId: m.senderId, text: (m.text || '').slice(0, 500) }))}
+        title="Konuşmayı şikayet et"
+      />
     </div>
   )
 }

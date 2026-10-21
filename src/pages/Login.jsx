@@ -29,7 +29,7 @@ function Login() {
   }
 
   return (
-    <div className="container d-flex justify-content-center align-items-center min-vh-100">
+    <div className="container d-flex justify-content-center align-items-center py-4 auth-page">
       <div className="card shadow-lg p-4" style={{ maxWidth: '400px', width: '100%' }}>
         <h2 className="text-center fw-bold text-pink-600 mb-4">👗 Giriş Yap</h2>
 

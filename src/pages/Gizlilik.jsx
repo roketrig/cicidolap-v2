@@ -34,6 +34,10 @@ function Gizlilik() {
             <li><strong>Mesajlaşma:</strong> diğer kullanıcılarla yaptığın yazışmaların
               içeriği ve zamanı.</li>
             <li><strong>Kullanım verileri:</strong> favoriler, oturum bilgisi.</li>
+            <li><strong>Güvenlik kayıtları:</strong> engellediğin kullanıcıların listesi ve
+              gönderdiğin şikayetler (şikayet sebebi, notun ve konuşma şikayetlerinde son
+              mesajlar). Bu kayıtlar yalnızca kötüye kullanımı önlemek için yönetici ekibimizce
+              kullanılır.</li>
           </ul>
         </section>
 
@@ -62,11 +66,23 @@ function Gizlilik() {
         </section>
 
         <section className="mb-4">
-          <h2 className="h5 fw-bold">5. Saklama Süresi</h2>
-          <p className="text-muted mb-0">
+          <h2 className="h5 fw-bold">5. Saklama Süresi ve Hesap Silme</h2>
+          <p className="text-muted mb-2">
             Veriler, üyeliğin sürdüğü ve ilgili mevzuatın öngördüğü süre boyunca saklanır.
-            İlanını sildiğinde ilana ait telefon kaydı da silinir. Hesabının tamamen
-            silinmesini istersen aşağıdaki adresten başvurabilirsin.
+            İlanını sildiğinde ilana ait telefon kaydı da silinir.
+          </p>
+          <p className="text-muted mb-2">
+            Hesabını istediğin zaman <Link to="/hesap-sil">Hesabımı Sil</Link> sayfasından
+            (uygulamayı yüklemeden/giriş yapmadan da erişilebilir) kalıcı olarak
+            silebilirsin. Hesap silme; <strong>tüm ilanlarını (fotoğrafları dahil),
+            favorilerini ve giriş hesabını</strong> kalıcı olarak siler.
+          </p>
+          <p className="text-muted mb-0">
+            <strong>Sınır:</strong> Başkalarıyla yaptığın mesajlaşmalar tek taraflı
+            değildir — karşı tarafın da kopyası olduğu ortak bir yazışmadır, bu yüzden
+            hesap silme mesaj içeriğini otomatik silmez. Mesajlarının da silinmesini
+            istersen <strong>info@cicidolap.com.tr</strong> adresinden bizimle iletişime
+            geçebilirsin.
           </p>
         </section>
 

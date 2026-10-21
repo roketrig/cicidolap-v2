@@ -1,7 +1,7 @@
 // src/pages/Register.jsx
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth'
 import { auth } from '../firebase'
 import { authErrorMessage } from '../utils'
 
@@ -10,6 +10,7 @@ function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -29,12 +30,25 @@ function Register() {
       setError('Şifre en az 6 karakter olmalıdır!')
       return
     }
+    if (!agreed) {
+      setError('Devam etmek için 18 yaşında olduğunu ve şartları kabul ettiğini onaylamalısın.')
+      return
+    }
 
     setLoading(true)
 
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(cred.user, { displayName: name.trim() })
+      // Doğrulama e-postası — hesap yine de hemen kullanılabilir, bu
+      // sadece güven/spam-azaltma amaçlı, gönderilemezse akışı bozmasın.
+      // Hemen ardından sayfa yenileneceği için isteğin tamamlanmasını
+      // (await ile) bekliyoruz, yoksa tarayıcı isteği yarıda kesebilir.
+      try {
+        await sendEmailVerification(cred.user)
+      } catch (err) {
+        console.error('Doğrulama e-postası gönderilemedi:', err)
+      }
       // Profil adının uygulama genelinde görünmesi için tam yenileme yap
       // (onAuthStateChanged zaten adsız kullanıcıyla tetiklenmişti).
       window.location.replace('/')
@@ -46,7 +60,7 @@ function Register() {
   }
 
   return (
-    <div className="container d-flex justify-content-center align-items-center min-vh-100">
+    <div className="container d-flex justify-content-center align-items-center py-4 auth-page">
       <div className="card shadow-lg p-4" style={{ maxWidth: '400px', width: '100%' }}>
         <h2 className="text-center fw-bold text-pink-600 mb-4">👗 Kayıt Ol</h2>
 
@@ -108,6 +122,21 @@ function Register() {
               autoComplete="new-password"
               required
             />
+          </div>
+
+          <div className="form-check mb-3">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="agreeTerms"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              required
+            />
+            <label className="form-check-label small" htmlFor="agreeTerms">
+              18 yaşındayım; <Link to="/kullanim-sartlari">Kullanım Şartları</Link>'nı ve{' '}
+              <Link to="/gizlilik">Gizlilik Politikası</Link>'nı okudum, kabul ediyorum.
+            </label>
           </div>
 
           <button

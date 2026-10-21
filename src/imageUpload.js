@@ -105,3 +105,37 @@ export async function deleteProductImage(imageUrl, idToken) {
     console.error('Eski görsel silinirken hata (göz ardı edildi):', err)
   }
 }
+
+// Birden çok görseli siler (sessizce — tek tek hata yutulur).
+export async function deleteProductImages(urls, idToken) {
+  await Promise.all((urls || []).map((u) => deleteProductImage(u, idToken)))
+}
+
+// ImagePicker'daki öğeleri ([{ url } | { file }]) sırayla yükler; var olan
+// (url'li) öğeleri olduğu gibi bırakır. Bir yükleme başarısız olursa o ana
+// kadar yüklenenleri temizleyip hatayı yeniden fırlatır.
+// Döner: { urls: son sıralı adresler, uploaded: bu çağrıda yeni yüklenenler }
+export async function uploadPickedImages(items, idToken) {
+  const uploaded = []
+  const urls = []
+  try {
+    for (const item of items) {
+      if (item.file) {
+        const url = await uploadProductImage(item.file, idToken)
+        uploaded.push(url)
+        urls.push(url)
+      } else if (item.url) {
+        urls.push(item.url)
+      }
+    }
+  } catch (err) {
+    await deleteProductImages(uploaded, idToken)
+    throw err
+  }
+  return { urls, uploaded }
+}
+
+// Zaten yüklü görsel adreslerini ImagePicker öğelerine çevirir.
+export function pickerItemsFromUrls(urls) {
+  return (urls || []).map((url, i) => ({ key: `existing-${i}-${url}`, url }))
+}

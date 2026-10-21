@@ -1,168 +1,173 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
-import { auth, db } from './firebase'
-import { ADMIN_EMAIL } from './constants'
-import { isUnread } from './chat'
-import { displayName } from './utils'
-import Home from './pages/Home'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import ForgotPassword from './pages/ForgotPassword'
-import AddProduct from './pages/AddProduct'
-import ProductDetail from './pages/ProductDetail'
-import AdminPanel from './pages/AdminPanel'
-import Profile from './pages/Profile'
-import EditProduct from './pages/EditProduct'
-import Messages from './pages/Messages'
-import Conversation from './pages/Conversation'
-import Products from './pages/Products'
-import Favorites from './pages/Favorites'
-import Gizlilik from './pages/Gizlilik'
-import NotFound from './pages/NotFound'
+import React, { Suspense, lazy, useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth'
+import { auth } from './firebase'
+import { setupNative } from './native'
+import { useUnreadCount } from './hooks/useUnreadCount'
+import { SafetyProvider, useSafety } from './context/SafetyContext'
+import Header from './components/Header'
+import Footer from './components/Footer'
+import BottomNav from './components/BottomNav'
 import ErrorBoundary from './components/ErrorBoundary'
-import logo from './assets/cicidolap-logo.png'
+import Home from './pages/Home'
 
-function Header({ user }) {
+// Ana sayfa dışındaki ekranlar ihtiyaç olunca yükleniyor — uygulama açılışı
+// (özellikle mobilde) çok daha hızlı.
+const Login = lazy(() => import('./pages/Login'))
+const Register = lazy(() => import('./pages/Register'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const AddProduct = lazy(() => import('./pages/AddProduct'))
+const ProductDetail = lazy(() => import('./pages/ProductDetail'))
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+const Profile = lazy(() => import('./pages/Profile'))
+const EditProduct = lazy(() => import('./pages/EditProduct'))
+const Messages = lazy(() => import('./pages/Messages'))
+const Conversation = lazy(() => import('./pages/Conversation'))
+const Products = lazy(() => import('./pages/Products'))
+const Favorites = lazy(() => import('./pages/Favorites'))
+const SellerProfile = lazy(() => import('./pages/SellerProfile'))
+const BlockedUsers = lazy(() => import('./pages/BlockedUsers'))
+const Help = lazy(() => import('./pages/Help'))
+const Gizlilik = lazy(() => import('./pages/Gizlilik'))
+const Terms = lazy(() => import('./pages/Terms'))
+const DeleteAccount = lazy(() => import('./pages/DeleteAccount'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+
+function PageSpinner() {
+  return (
+    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
+      <div className="spinner-border text-pink-600" role="status">
+        <span className="visually-hidden">Yükleniyor...</span>
+      </div>
+    </div>
+  )
+}
+
+// Router içinde bir kez: donanım geri tuşu, durum çubuğu, klavye.
+function NativeBridge() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  useEffect(() => setupNative(navigate), [navigate])
+  return null
+}
 
-  // Sayfa değişince açık mobil menüyü kapat.
+// Sayfa değişince en üste kaydır; #hash varsa o öğeye git.
+function ScrollManager() {
+  const { pathname, hash } = useLocation()
   useEffect(() => {
-    setIsMenuOpen(false)
-  }, [location.pathname])
-
-  // Okunmamış mesaj rozeti: kullanıcının katıldığı konuşmalardan, son
-  // mesajı karşı tarafın attığı ve henüz okunmamış olanların sayısı.
-  // Canlı (onSnapshot) güncelleniyor, 0 iken rozet hiç görünmüyor.
-  useEffect(() => {
-    if (!user) {
-      setUnreadCount(0)
-      return
+    if (hash) {
+      const el = document.getElementById(hash.slice(1))
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
     }
-    const q = query(
-      collection(db, 'conversations'),
-      where('participants', 'array-contains', user.uid)
-    )
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let count = 0
-      snapshot.forEach((docSnap) => {
-        if (isUnread(docSnap.data(), user.uid)) count++
-      })
-      setUnreadCount(count)
-    }, (error) => {
-      console.error('Okunmamış mesaj sayısı alınırken hata:', error)
-    })
-    return () => unsubscribe()
-  }, [user])
+    window.scrollTo(0, 0)
+  }, [pathname, hash])
+  return null
+}
 
-  const handleLogout = async () => {
+// Üstte ince bilgi bantları: e-posta doğrulama, yönetici yasağı.
+function Banners({ user }) {
+  const { isBanned } = useSafety()
+  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem('cd-verify-dismissed') === '1')
+  const [, forceRender] = useState(0)
+  const [status, setStatus] = useState('')
+
+  const resend = async () => {
     try {
-      await signOut(auth)
-      navigate('/')
-    } catch (error) {
-      console.error('Çıkış yaparken hata:', error)
+      await sendEmailVerification(auth.currentUser)
+      setStatus('Doğrulama e-postası gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.')
+    } catch (err) {
+      console.error(err)
+      setStatus('Şu an gönderilemedi, biraz sonra tekrar dene.')
+    }
+  }
+
+  const check = async () => {
+    try {
+      await auth.currentUser.reload()
+      forceRender((n) => n + 1)
+      if (!auth.currentUser.emailVerified) setStatus('Henüz doğrulanmamış görünüyor.')
+    } catch (err) {
+      console.error(err)
     }
   }
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
-      <div className="container">
-              <Link to="/" className="navbar-brand d-flex align-items-center">
-                <img src={logo} alt="Cici Dolap" className="navbar-logo" />
-              </Link>
-        <button
-          className="navbar-toggler"
-          type="button"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Menüyü aç/kapat"
-          aria-expanded={isMenuOpen}
-          aria-controls="ana-menu"
-        >
-          <span className="navbar-toggler-icon"></span>
-        </button>
-
-        <div id="ana-menu" className={`collapse navbar-collapse ${isMenuOpen ? 'show' : ''}`}>
-          <ul className="navbar-nav ms-auto align-items-center gap-2">
-            <li className="nav-item">
-              <Link to="/" className="nav-link">Ana Sayfa</Link>
-            </li>
-
-            {user ? (
-              <>
-                <li className="nav-item">
-                  <Link to="/add-product" className="btn btn-pink rounded-pill px-4">
-                    ➕ Ürün Ekle
-                  </Link>
-                </li>
-                {user.email === ADMIN_EMAIL && (
-                  <li className="nav-item">
-                    <Link to="/admin" className="nav-link">⚙️ Admin</Link>
-                  </li>
-                )}
-                <li className="nav-item">
-                  <Link to="/favorites" className="nav-link">🤍 Favorilerim</Link>
-                </li>
-                <li className="nav-item">
-                  <Link to="/messages" className="nav-link position-relative">
-                    💬 Mesajlar
-                    {unreadCount > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link to="/profile" className="nav-link">👤 {displayName(user)}</Link>
-                </li>
-                <li className="nav-item">
-                  <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">Çıkış</button>
-                </li>
-              </>
-            ) : (
-              <>
-                <li className="nav-item">
-                  <Link to="/login" className="nav-link">Giriş</Link>
-                </li>
-                <li className="nav-item">
-                  <Link to="/register" className="btn btn-pink rounded-pill px-4">Kayıt Ol</Link>
-                </li>
-              </>
-            )}
-          </ul>
+    <>
+      {isBanned && (
+        <div className="app-banner app-banner--danger">
+          Hesabın yönetici tarafından kısıtlandı; ilan ve mesaj gönderemezsin. Bir yanlışlık olduğunu
+          düşünüyorsan info@cicidolap.com.tr adresine yaz.
         </div>
-      </div>
-    </nav>
+      )}
+      {user && !user.emailVerified && !dismissed && (
+        <div className="app-banner">
+          <span>
+            ✉️ E-postanı doğrula ({user.email}).{' '}
+            {status && <strong>{status}</strong>}
+          </span>
+          <span className="d-flex gap-2 flex-shrink-0">
+            <button type="button" className="app-banner-btn" onClick={resend}>Tekrar gönder</button>
+            <button type="button" className="app-banner-btn" onClick={check}>Doğruladım</button>
+            <button
+              type="button"
+              className="app-banner-btn"
+              aria-label="Kapat"
+              onClick={() => {
+                sessionStorage.setItem('cd-verify-dismissed', '1')
+                setDismissed(true)
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+      )}
+    </>
   )
 }
 
-function Footer() {
+function Shell({ user }) {
+  const unreadCount = useUnreadCount(user)
   return (
-    <footer className="cd-footer">
-      <div className="container">
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-          <div className="d-flex align-items-center gap-2">
-            <img src={logo} alt="Cici Dolap" className="footer-logo" />
-          </div>
-          <p className="mb-0 small" style={{ color: 'rgba(255,255,255,0.75)' }}>
-            0-12 yaş çocuk ürünleri için sıcacık ikinci el pazarı 💗
-          </p>
-        </div>
-        <hr />
-        <div className="text-center">
-          <small>
-            © {new Date().getFullYear()} Cici Dolap · Sevgiyle, Türkiye'de 🇹🇷
-            {' · '}
-            <Link to="/gizlilik" style={{ color: 'rgba(255,255,255,0.75)' }}>Gizlilik & KVKK</Link>
-          </small>
-        </div>
-      </div>
-    </footer>
+    <div className="app-shell d-flex flex-column min-vh-100">
+      <NativeBridge />
+      <ScrollManager />
+      <Header user={user} unreadCount={unreadCount} />
+      <Banners user={user} />
+      <main className="flex-grow-1 app-main">
+        <ErrorBoundary>
+          <Suspense fallback={<PageSpinner />}>
+            <Routes>
+              <Route path="/" element={<Home user={user} />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/add-product" element={<AddProduct />} />
+              <Route path="/product/:id" element={<ProductDetail user={user} />} />
+              <Route path="/satici/:uid" element={<SellerProfile user={user} />} />
+              <Route path="/admin" element={<AdminPanel user={user} />} />
+              <Route path="/profile" element={<Profile user={user} />} />
+              <Route path="/engellenenler" element={<BlockedUsers user={user} />} />
+              <Route path="/edit-product/:id" element={<EditProduct />} />
+              <Route path="/messages" element={<Messages user={user} />} />
+              <Route path="/messages/:conversationId" element={<Conversation user={user} />} />
+              <Route path="/products" element={<Products user={user} />} />
+              <Route path="/favorites" element={<Favorites user={user} />} />
+              <Route path="/yardim" element={<Help />} />
+              <Route path="/gizlilik" element={<Gizlilik />} />
+              <Route path="/kullanim-sartlari" element={<Terms />} />
+              <Route path="/hesap-sil" element={<DeleteAccount user={user} />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </main>
+      <Footer />
+      <BottomNav user={user} unreadCount={unreadCount} />
+    </div>
   )
 }
 
@@ -178,45 +183,13 @@ function App() {
     return () => unsubscribe()
   }, [])
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="text-center">
-          <div className="spinner-border text-pink-600" role="status">
-            <span className="visually-hidden">Yükleniyor...</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   return (
     <BrowserRouter>
-      <div className="d-flex flex-column min-vh-100">
-        <Header user={user} />
-        <div className="flex-grow-1">
-          <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<Home user={user} />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/add-product" element={<AddProduct />} />
-            <Route path="/product/:id" element={<ProductDetail user={user} />} />
-            <Route path="/admin" element={<AdminPanel user={user} />} />
-            <Route path="/profile" element={<Profile user={user} />} />
-            <Route path="/edit-product/:id" element={<EditProduct />} />
-            <Route path="/messages" element={<Messages user={user} />} />
-            <Route path="/messages/:conversationId" element={<Conversation user={user} />} />
-            <Route path="/products" element={<Products user={user} />} />
-            <Route path="/favorites" element={<Favorites user={user} />} />
-            <Route path="/gizlilik" element={<Gizlilik />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </ErrorBoundary>
-        </div>
-        <Footer />
-      </div>
+      <SafetyProvider user={user}>
+        <Shell user={user} />
+      </SafetyProvider>
     </BrowserRouter>
   )
 }

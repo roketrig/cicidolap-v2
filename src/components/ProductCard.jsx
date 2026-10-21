@@ -1,49 +1,35 @@
 // src/components/ProductCard.jsx
 //
-// Home.jsx ve Products.jsx'teki ürün listeleme kartı — favori kalbi ve
-// "Satıldı" şeridi burada tek yerden yönetiliyor, iki sayfada da aynı
-// markup tekrar tekrar yazılmıyor.
+// Liste kartı (Dolap/Vinted tarzı): kare görsel, marka, başlık, belirgin fiyat,
+// durum + beden, konum ve "ne zaman" bilgisi. Kartın tamamı tıklanabilir
+// (stretched-link); favori kalbi onun üstünde.
 import React, { memo } from 'react'
 import { Link } from 'react-router-dom'
+import Icon from './Icon'
 import { subcategoryLabel } from '../data/categories'
-
-// Favori kalbi artık emoji değil, SVG. Emoji (🤍 / ❤️) bazı Windows/Android
-// sürümlerinde neredeyse aynı görünüyordu; SVG ile "dolu kırmızı" ve "boş
-// çerçeve" hâli her cihazda net ayırt ediliyor.
-function HeartIcon({ filled }) {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path
-        d="M12 20.7s-6.75-4.28-9.4-8.02C.86 9.9 1.73 6.4 4.8 5.5c1.94-.57 3.94.33 5.2 1.96C11.26 5.83 13.26 4.93 15.2 5.5c3.07.9 3.94 4.4 2.2 7.18C18.75 16.42 12 20.7 12 20.7z"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
+import { productImages, formatPrice, conditionLabel, timeAgo } from '../utils'
 
 function ProductCard({ product, isFavorited, onToggleFavorite }) {
-  return (
-    <div className="card product-card h-100 shadow-sm position-relative">
-      {product.sold && (
-        <div className="product-sold-ribbon">Satıldı</div>
-      )}
+  const img = productImages(product)[0]
+  const isFree = Number(product.price) === 0
 
-      <div className="product-image d-flex align-items-center justify-content-center bg-light position-relative">
-        {product.imageUrl ? (
+  return (
+    <article className="pcard">
+      <div className="pcard-media">
+        {img ? (
           <img
-            src={product.imageUrl}
+            src={img}
             alt={product.title}
             loading="lazy"
             decoding="async"
-            className="img-fluid h-100 object-fit-cover"
             style={product.sold ? { opacity: 0.55 } : undefined}
           />
         ) : (
-          <span className="display-1 opacity-25">🧸</span>
+          <span className="pcard-placeholder">🧸</span>
         )}
+
+        {product.sold && <div className="product-sold-ribbon">Satıldı</div>}
+        {isFree && !product.sold && <span className="pcard-tag pcard-tag--free">🎁 Bağış</span>}
 
         {onToggleFavorite && (
           <button
@@ -51,43 +37,41 @@ function ProductCard({ product, isFavorited, onToggleFavorite }) {
             className={`favorite-btn ${isFavorited ? 'is-active' : ''}`}
             onClick={(e) => {
               e.preventDefault()
+              e.stopPropagation()
               onToggleFavorite(product.id)
             }}
             aria-pressed={isFavorited}
             aria-label={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
             title={isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'}
           >
-            <HeartIcon filled={isFavorited} />
+            <Icon name="heart" size={20} filled={isFavorited} strokeWidth={1.7} />
           </button>
         )}
       </div>
 
-      <div className="card-body">
-        <div className="d-flex justify-content-between align-items-start">
-          <h5 className="card-title fw-bold text-truncate">{product.title}</h5>
-          <span className={`badge badge-${product.condition}`}>
-            {product.condition === 'new' ? 'Yeni' :
-              product.condition === 'like-new' ? 'Az Kullanılmış' :
-                product.condition === 'used' ? 'Kullanılmış' : 'Yıpranmış'}
-          </span>
+      <div className="pcard-body">
+        <div className="pcard-brand">
+          {product.brand || subcategoryLabel(product.category, product.subcategory)}
         </div>
-        <p className="card-text small text-muted">
-          {subcategoryLabel(product.category, product.subcategory)}
-          {product.province && <> · 📍 {product.province}</>}
-        </p>
-        <div className="d-flex justify-content-between align-items-center mt-2">
-          <span className="fs-5 fw-bold text-pink-600">
-            {product.price === 0 ? '🎁 Bağış' : `${product.price} TL`}
-          </span>
-        </div>
-        <Link
-          to={`/product/${product.id}`}
-          className="btn btn-pink w-100 mt-3 rounded-pill"
-        >
-          {product.sold ? '👀 İlana Bak' : '✨ İncele'}
+        <Link to={`/product/${product.id}`} className="pcard-title stretched-link">
+          {product.title}
         </Link>
+        <div className={`pcard-price ${isFree ? 'is-free' : ''}`}>{formatPrice(product.price)}</div>
+        <div className="pcard-meta">
+          <span className={`pcard-cond cond-${product.condition}`}>{conditionLabel(product.condition)}</span>
+          {product.size && <span className="pcard-size">{product.size}</span>}
+        </div>
+        <div className="pcard-foot">
+          {product.province && (
+            <>
+              <Icon name="pin" size={13} /> {product.province}
+            </>
+          )}
+          {product.province && product.createdAt && <span className="mx-1">·</span>}
+          {product.createdAt && <span>{timeAgo(product.createdAt)}</span>}
+        </div>
       </div>
-    </div>
+    </article>
   )
 }
 

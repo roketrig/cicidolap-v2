@@ -27,6 +27,7 @@ export const CATEGORIES = [
   {
     id: 'giyim',
     label: 'Giyim & Tekstil',
+    shortLabel: 'Giyim',
     emoji: '👕',
     subcategories: [
       { id: 'tulum', label: 'Tulum' },
@@ -47,6 +48,7 @@ export const CATEGORIES = [
   {
     id: 'arac-gerec',
     label: 'Araç Gereç',
+    shortLabel: 'Araç Gereç',
     emoji: '🚗',
     subcategories: [
       { id: 'bebek-arabasi', label: 'Bebek Arabası' },
@@ -61,6 +63,7 @@ export const CATEGORIES = [
   {
     id: 'oyuncak',
     label: 'Oyuncak',
+    shortLabel: 'Oyuncak',
     emoji: '🧸',
     subcategories: [
       { id: 'egitici-oyuncak', label: 'Eğitici Oyuncak' },
@@ -76,6 +79,7 @@ export const CATEGORIES = [
   {
     id: 'beslenme',
     label: 'Beslenme',
+    shortLabel: 'Beslenme',
     emoji: '🍼',
     subcategories: [
       { id: 'mama-sandalyesi', label: 'Mama Sandalyesi' },
@@ -88,6 +92,7 @@ export const CATEGORIES = [
   {
     id: 'emzirme-hamilelik',
     label: 'Emzirme & Hamilelik',
+    shortLabel: 'Emzirme',
     emoji: '🤱',
     subcategories: [
       { id: 'hamile-giyim', label: 'Hamile Giyim' },
@@ -100,6 +105,7 @@ export const CATEGORIES = [
   {
     id: 'banyo-bakim',
     label: 'Banyo & Bakım',
+    shortLabel: 'Banyo & Bakım',
     emoji: '🛁',
     subcategories: [
       { id: 'bebek-kuveti', label: 'Bebek Küveti' },
@@ -112,6 +118,7 @@ export const CATEGORIES = [
   {
     id: 'guvenlik',
     label: 'Güvenlik',
+    shortLabel: 'Güvenlik',
     emoji: '🛡️',
     subcategories: [
       { id: 'bariyer', label: 'Kapı & Merdiven Bariyeri' },
@@ -123,6 +130,7 @@ export const CATEGORIES = [
   {
     id: 'mobilya-oda',
     label: 'Mobilya & Oda',
+    shortLabel: 'Mobilya',
     emoji: '🛏️',
     subcategories: [
       { id: 'besik-karyola', label: 'Beşik & Karyola' },
@@ -136,6 +144,7 @@ export const CATEGORIES = [
   {
     id: 'kitap-egitici',
     label: 'Kitap & Eğitici Oyuncak',
+    shortLabel: 'Kitap',
     emoji: '📚',
     subcategories: [
       { id: 'resimli-hikaye-kitabi', label: 'Resimli / Hikaye Kitabı' },
@@ -147,6 +156,7 @@ export const CATEGORIES = [
   {
     id: 'okul-kirtasiye',
     label: 'Okul & Kırtasiye',
+    shortLabel: 'Okul',
     emoji: '🎒',
     subcategories: [
       { id: 'okul-cantasi', label: 'Okul Çantası' },
@@ -159,6 +169,7 @@ export const CATEGORIES = [
   {
     id: 'bisiklet-disari',
     label: 'Bisiklet & Dışarı',
+    shortLabel: 'Bisiklet',
     emoji: '🚲',
     subcategories: [
       { id: 'bisiklet', label: 'Bisiklet' },
@@ -168,7 +179,8 @@ export const CATEGORIES = [
       { id: 'diger-disari', label: 'Diğer Dışarı' },
     ],
   },
-  { id: 'diger', label: 'Diğer', emoji: '🎁', subcategories: [] },
+  { id: 'diger', label: 'Diğer',
+    shortLabel: 'Diğer', emoji: '🎁', subcategories: [] },
 ]
 
 export const AGE_GROUPS = [

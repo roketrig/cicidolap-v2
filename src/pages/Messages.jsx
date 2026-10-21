@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { isUnread, otherParty } from '../chat'
+import { useSafety } from '../context/SafetyContext'
 
 function formatTime(ts) {
   const d = ts?.toDate?.()
@@ -21,7 +22,8 @@ function formatTime(ts) {
 }
 
 function Messages({ user }) {
-  const [conversations, setConversations] = useState([])
+  const { isBlocked } = useSafety()
+  const [allConversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -52,6 +54,9 @@ function Messages({ user }) {
     return () => unsubscribe()
   }, [user])
 
+  // Engellenen kullanıcılarla yazışmalar listede görünmez.
+  const conversations = allConversations.filter((c) => !isBlocked(otherParty(c, user?.uid).id))
+
   if (!user) {
     return (
       <div className="container text-center py-5">
@@ -64,10 +69,10 @@ function Messages({ user }) {
   }
 
   return (
-    <div className="container py-4">
-      <div className="card shadow-sm p-4 mb-4">
-        <h1 className="fw-bold text-pink-600">💬 Mesajlar</h1>
-        <p className="text-muted mb-0">Alıcı ve satıcılarla yaptığın tüm yazışmalar burada.</p>
+    <div className="container py-3 py-md-4">
+      <div className="mb-3">
+        <h1 className="h3 fw-bold text-pink-600 mb-1">Mesajlar</h1>
+        <p className="text-muted small mb-0">Alıcı ve satıcılarla yaptığın tüm yazışmalar burada.</p>
       </div>
 
       {loading ? (

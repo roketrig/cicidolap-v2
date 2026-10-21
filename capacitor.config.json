@@ -2,12 +2,32 @@
   "appId": "com.cicidolap.app",
   "appName": "Cici Dolap",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "backgroundColor": "#fffaf6",
   "android": {
     "backgroundColor": "#fffaf6"
   },
+  "ios": {
+    "backgroundColor": "#fffaf6",
+    "contentInset": "never"
+  },
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 900,
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 250,
+      "backgroundColor": "#fffaf6",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#ffffff"
+    },
+    "Keyboard": {
+      "resize": "body",
+      "resizeOnFullScreen": true
+    }
   }
 }

@@ -6,11 +6,13 @@ import { auth, db } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 import { CATEGORIES, AGE_GROUPS, subcategoriesFor } from '../data/categories'
-import { uploadProductImage, deleteProductImage } from '../imageUpload'
+import { uploadPickedImages, deleteProductImages, pickerItemsFromUrls } from '../imageUpload'
+import ImagePicker from '../components/ImagePicker'
+import { productImages } from '../utils'
 import { CONTACT_PREF, KVKK_CONSENT_LABEL, saveListingPhone, removeListingPhone, fetchListingPhone } from '../contact'
 
 const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_PHOTOS = 5
 
 function EditProduct() {
   const { id } = useParams()
@@ -20,16 +22,17 @@ function EditProduct() {
   const [error, setError] = useState('')          // form içi hatalar (telefon, görsel, kayıt)
   const [fatalError, setFatalError] = useState('') // ürün yok / yetki yok — tüm sayfayı kaplar
   const [success, setSuccess] = useState('')
-  const [currentImageUrl, setCurrentImageUrl] = useState('')
+  const [originalUrls, setOriginalUrls] = useState([])
   const [ownerId, setOwnerId] = useState('')
-  const [image, setImage] = useState(null)
-  const [imagePreview, setImagePreview] = useState(null)
+  const [photos, setPhotos] = useState([])
   const [phoneConsent, setPhoneConsent] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     category: '',
     subcategory: '',
     ageGroup: '',
+    brand: '',
+    size: '',
     price: '',
     description: '',
     condition: 'new',
@@ -51,13 +54,6 @@ function EditProduct() {
   useEffect(() => {
     fetchProduct()
   }, [id])
-
-  // Görsel önizleme blob URL'sini temizle.
-  useEffect(() => {
-    return () => {
-      if (imagePreview) URL.revokeObjectURL(imagePreview)
-    }
-  }, [imagePreview])
 
   const fetchProduct = async () => {
     try {
@@ -88,7 +84,9 @@ function EditProduct() {
           district = parts[1] || (province ? '' : data.city)
         }
 
-        setCurrentImageUrl(data.imageUrl || '')
+        const existing = productImages(data)
+        setOriginalUrls(existing)
+        setPhotos(pickerItemsFromUrls(existing))
         setOwnerId(data.userId || auth.currentUser?.uid || '')
 
         // İletişim tercihi: yeni alan "contactPref"; eski ilanlarda alan
@@ -131,6 +129,8 @@ function EditProduct() {
           category: isKnownCategory ? data.category : '',
           subcategory: validSubcategory,
           ageGroup: data.ageGroup || legacyAgeGroup || '',
+          brand: data.brand || '',
+          size: data.size || '',
           price: data.price?.toString() || '',
           description: data.description || '',
           condition: data.condition || 'new',
@@ -160,24 +160,6 @@ function EditProduct() {
     })
   }
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('Lütfen sadece resim dosyası seç (JPG, PNG, WebP).')
-      e.target.value = ''
-      return
-    }
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError("Resim 5MB'dan büyük olamaz. Lütfen daha küçük bir dosya seç.")
-      e.target.value = ''
-      return
-    }
-    setError('')
-    setImage(file)
-    setImagePreview(URL.createObjectURL(file))
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -196,19 +178,27 @@ function EditProduct() {
       }
     }
 
+    if (photos.length === 0) {
+      setError('En az bir fotoğraf olmalı.')
+      return
+    }
+
     setSubmitting(true)
 
-    let newImageUrl = ''
+    let uploaded = []
     let idToken = null
     try {
-      if (image) {
-        idToken = await auth.currentUser.getIdToken()
-        newImageUrl = await uploadProductImage(image, idToken)
-      }
+      idToken = await auth.currentUser.getIdToken()
+      const result = await uploadPickedImages(photos, idToken)
+      uploaded = result.uploaded
 
       const { phone: _omitPhone, ...rest } = formData
       const productData = {
         ...rest,
+        brand: formData.brand.trim(),
+        size: formData.size.trim(),
+        imageUrls: result.urls,
+        imageUrl: result.urls[0] || '',
         city: `${formData.province} / ${formData.district}`,
         price: parseFloat(formData.price) || 0,
         // Eski ilanlarda herkese açık dokümanda kalmış olabilecek telefonu
@@ -217,7 +207,6 @@ function EditProduct() {
         phoneConsentAt: wantsPhone ? serverTimestamp() : deleteField(),
         updatedAt: serverTimestamp()
       }
-      if (newImageUrl) productData.imageUrl = newImageUrl
 
       await updateDoc(doc(db, 'products', id), productData)
 
@@ -228,11 +217,10 @@ function EditProduct() {
         await removeListingPhone(id)
       }
 
-      // Yeni görsel yüklendiyse eskisini R2'den temizle.
-      if (newImageUrl && currentImageUrl && currentImageUrl !== newImageUrl) {
-        deleteProductImage(currentImageUrl, idToken).catch(() => {})
-        setCurrentImageUrl(newImageUrl)
-      }
+      // Kullanıcının kaldırdığı eski görselleri R2'den temizle.
+      const removed = originalUrls.filter((u) => !result.urls.includes(u))
+      if (removed.length) deleteProductImages(removed, idToken).catch(() => {})
+      setOriginalUrls(result.urls)
 
       setSuccess('✅ Ürün başarıyla güncellendi!')
       setTimeout(() => {
@@ -242,8 +230,8 @@ function EditProduct() {
       console.error('Ürün güncelleme hatası:', err)
       setError('Ürün güncellenirken bir hata oluştu: ' + err.message)
       // Güncelleme başarısızsa yeni yüklenen görseli öksüz bırakma.
-      if (newImageUrl && idToken) {
-        deleteProductImage(newImageUrl, idToken).catch(() => {})
+      if (uploaded.length && idToken) {
+        deleteProductImages(uploaded, idToken).catch(() => {})
       }
     } finally {
       setSubmitting(false)
@@ -295,29 +283,9 @@ function EditProduct() {
             )}
 
             <form onSubmit={handleSubmit}>
-              {/* Ürün Görseli */}
               <div className="mb-3">
-                <label className="form-label fw-semibold">Ürün Görseli</label>
-                <div className="d-flex align-items-center gap-3">
-                  <div className="flex-shrink-0" style={{ width: '90px', height: '90px' }}>
-                    {imagePreview || currentImageUrl ? (
-                      <img
-                        src={imagePreview || currentImageUrl}
-                        alt="Ürün görseli"
-                        className="img-fluid rounded-3 object-fit-cover w-100 h-100 border"
-                      />
-                    ) : (
-                      <div className="d-flex align-items-center justify-content-center bg-light rounded-3 w-100 h-100">
-                        <span className="fs-3 opacity-25">📷</span>
-                      </div>
-                    )}
-                  </div>
-                  <label className="btn btn-outline-secondary flex-grow-1 py-3 border-dashed">
-                    <input type="file" accept="image/*" onChange={handleImageChange} className="d-none" />
-                    <span className="small">{currentImageUrl ? 'Görseli değiştir' : 'Resim seç'}</span>
-                  </label>
-                </div>
-                <small className="text-muted">JPG, PNG, WebP (Max 5MB). Boş bırakırsan mevcut görsel korunur.</small>
+                <label className="form-label fw-semibold">Fotoğraflar <span className="text-danger">*</span></label>
+                <ImagePicker items={photos} onChange={setPhotos} onError={setError} max={MAX_PHOTOS} />
               </div>
 
               {/* Ürün Başlığı */}
@@ -386,6 +354,17 @@ function EditProduct() {
                   </select>
                 </div>
               )}
+
+              <div className="row g-3 mb-3">
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Marka <small className="text-muted fw-normal">(isteğe bağlı)</small></label>
+                  <input type="text" name="brand" value={formData.brand} onChange={handleChange} placeholder="Örn: Chicco" className="form-control" maxLength={40} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Beden / Ölçü <small className="text-muted fw-normal">(isteğe bağlı)</small></label>
+                  <input type="text" name="size" value={formData.size} onChange={handleChange} placeholder="Örn: 3-6 ay" className="form-control" maxLength={30} />
+                </div>
+              </div>
 
               {/* Fiyat ve Durum */}
               <div className="row g-3">
