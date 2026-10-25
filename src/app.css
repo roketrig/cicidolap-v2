@@ -11,9 +11,7 @@
 /* ---------- Header ---------- */
 .site-header {
   z-index: 1030;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #fff;
   border-bottom: 1px solid var(--cd-border);
   padding-top: var(--safe-top);
 }
@@ -1152,3 +1150,6 @@ html.is-native input, html.is-native textarea { user-select: text; -webkit-user-
 @media (max-width: 991.98px) {
   .auth-page { min-height: auto; align-items: flex-start !important; padding-top: 1.5rem !important; }
 }
+
+/* Bootstrap ul girintisini sıfırla (filtre listeleri) */
+.filter-list { padding: 0; margin: 0; }
