@@ -63,11 +63,13 @@ jobs:
         run: |
           printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
 
-      - name: Arşivle (imzalama otomatik, API anahtarıyla)
+      # Arşiv imzasız alınıyor: otomatik imzalama arşivde bir *geliştirme*
+      # profili ister, o da Apple hesabında kayıtlı bir cihaz gerektirir.
+      # Asıl (App Store dağıtım) imzalaması bir sonraki adımda, export sırasında
+      # API anahtarıyla yapılıyor — cihaz gerekmez.
+      - name: Arşivle (imzasız)
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
           xcodebuild archive \
@@ -76,12 +78,9 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" 2>&1 | tee "$RUNNER_TEMP/archive.log"
 
       - name: App Store Connect'e yükle
