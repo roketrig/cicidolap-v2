@@ -4,29 +4,48 @@ Kod tarafında hazırlananlar ✅, senin (Mac / Apple hesabı gerektirdiği içi
 yapman gerekenler ☐. Android için bkz. `android/RELEASE.md`; mağaza metinleri
 için `store/listing-tr.md`.
 
-> iOS uygulaması **yalnızca macOS + Xcode** ile derlenir/arşivlenir. Bu
-> bilgisayarda (Windows) derleme yapılamaz; proje klasörü (`ios/`) hazır.
+> iOS uygulaması macOS + Xcode ile derlenir. Mac olmadığı için derleme
+> **GitHub Actions**'ın Mac sunucusunda yapılıyor (`.github/workflows/ios-testflight.yml`).
 
-## 1. Gerekenler ☐
+## 1. Tek seferlik kurulum ☐
 
-- Mac (Xcode 16+ önerilir) — yoksa Codemagic / Xcode Cloud / MacinCloud gibi bir bulut Mac servisi.
-- **Apple Developer Program** üyeliği (yıllık 99$; kimlik doğrulaması birkaç gün sürebilir — en erken bunu başlat).
+Apple Developer hesabı ✅ onaylandı. Sırayla:
 
-## 2. İlk derleme ☐
+1. **App Store Connect'te uygulamayı oluştur** — [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → Uygulamalar → **+** → Yeni Uygulama:
+   - Platform: iOS · Ad: `Cici Dolap` · Birincil dil: Türkçe
+   - Paket Kimliği (Bundle ID): `com.cicidolap.app` — listede yoksa önce
+     [developer.apple.com → Identifiers](https://developer.apple.com/account/resources/identifiers/list) → **+** → App IDs → App → Explicit: `com.cicidolap.app` ile kaydet, sonra geri dön.
+   - SKU: `cicidolap-ios` (sadece senin için bir etiket)
+2. **App Store Connect API anahtarı oluştur** — Kullanıcılar ve Erişim → **Entegrasyonlar** → App Store Connect API → Takım Anahtarları → **+**:
+   - Ad: `GitHub Actions` · Erişim: **Admin** (sertifika/profil otomatik oluşturulabilsin diye gerekiyor)
+   - `.p8` dosyasını indir — **yalnızca bir kez indirilebilir**, parola yöneticine/güvenli bir yere de kaydet.
+   - Aynı sayfadaki **Issuer ID** ve anahtarın **Key ID**'sini not et.
+3. **Team ID'ni bul** — [developer.apple.com/account](https://developer.apple.com/account) → Üyelik ayrıntıları → *Team ID* (10 karakter).
+4. **GitHub'a ekle** — repo → Settings → Secrets and variables → Actions:
+   - **Secrets** sekmesi → New repository secret:
+     | Ad | Değer |
+     |---|---|
+     | `APPLE_TEAM_ID` | Team ID |
+     | `ASC_KEY_ID` | Key ID |
+     | `ASC_ISSUER_ID` | Issuer ID |
+     | `ASC_KEY_P8` | `.p8` dosyasının **tüm içeriği** (Not Defteri ile aç, `-----BEGIN PRIVATE KEY-----` dahil kopyala) |
+   - **Variables** sekmesi → New repository variable:
+     `VITE_IMAGE_WORKER_URL` = `.env` dosyandaki / Vercel'deki değerin aynısı.
 
-```bash
-npm install
-npm run build
-npx cap sync ios
-npx cap open ios
-```
+Bu değerleri bana gönderme; doğrudan GitHub'a gir.
 
-Xcode'da:
-1. **App** hedefi → *Signing & Capabilities* → Team'i seç, *Automatically manage signing* açık kalsın.
-2. Bundle Identifier: `com.cicidolap.app` (Capacitor yapılandırmasıyla aynı; değiştirirsen `capacitor.config.json` içindeki `appId`'yi de değiştir).
-3. *General* → Version `1.0`, Build `1`. Her yüklemede Build numarasını artır.
-4. Gerçek cihazda veya simülatörde bir kez çalıştırıp giriş, ilan verme, fotoğraf seçme, mesajlaşmayı dene.
-5. *Product → Archive → Distribute App → App Store Connect* ile TestFlight'a yükle.
+## 2. Her yeni sürümde ☐
+
+1. GitHub → **Actions** → **iOS → TestFlight** → **Run workflow**.
+2. ~15-25 dk: web derlemesi → Xcode arşivi → imzalama → App Store Connect'e yükleme.
+   Build numarası otomatik artar (GitHub çalıştırma numarası), sürüm `1.0`.
+   Yeni bir mağaza sürümünde `ios/App/App.xcodeproj/project.pbxproj` içindeki `MARKETING_VERSION`'ı artır.
+3. Yükleme sonrası App Store Connect → **TestFlight**'ta build 10-30 dk içinde "İşleniyor"dan çıkar.
+   iPhone'una **TestFlight** uygulamasını kurup kendini dahili test kullanıcısı olarak ekle ve dene.
+4. Her şey yolundaysa: Uygulama sayfası → iOS Uygulaması 1.0 → **Build** bölümünden bu build'i seç → İncelemeye Gönder.
+
+> Mac'in olursa alternatif: `npm run build && npx cap sync ios && npx cap open ios`,
+> Xcode'da Team'i seç → Product → Archive → Distribute App.
 
 ## 3. App Store Connect ☐
 
