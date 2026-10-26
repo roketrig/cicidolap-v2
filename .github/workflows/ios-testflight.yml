@@ -5,7 +5,7 @@
 #
 # Gerekli ayarlar (repo → Settings → Secrets and variables → Actions):
 #   Secrets:   APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
-#   Variables: VITE_IMAGE_WORKER_URL
+#   Variables (ya da Secrets): VITE_IMAGE_WORKER_URL
 # Kurulum adımları: ios/RELEASE.md
 name: iOS → TestFlight
 
@@ -21,7 +21,8 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     env:
-      VITE_IMAGE_WORKER_URL: ${{ vars.VITE_IMAGE_WORKER_URL }}
+      # Variables ya da Secrets sekmesine eklenmiş olabilir; ikisinden de okunur.
+      VITE_IMAGE_WORKER_URL: ${{ vars.VITE_IMAGE_WORKER_URL || secrets.VITE_IMAGE_WORKER_URL }}
       # Her çalıştırma App Store Connect'te benzersiz bir build numarası alır.
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
