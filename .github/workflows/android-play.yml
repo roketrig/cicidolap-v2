@@ -1,0 +1,109 @@
+# Android: derle, imzala ve Google Play Console'a yükle.
+#
+# Elle tetiklenir: GitHub → Actions → "Android → Google Play" → Run workflow.
+#
+# Gerekli ayarlar (repo → Settings → Secrets and variables → Actions):
+#   Secrets:   PLAY_SERVICE_ACCOUNT_JSON, ANDROID_KEYSTORE_BASE64,
+#              ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#   Variables (ya da Secrets): VITE_IMAGE_WORKER_URL
+# Kurulum adımları: android/RELEASE.md → "Otomatik yükleme"
+name: Android → Google Play
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Yüklenecek kanal
+        type: choice
+        options: [internal, alpha, beta, production]
+        default: internal
+      status:
+        description: "completed = hemen yayınla · draft = Play Console'da taslak olarak beklesin"
+        type: choice
+        options: [completed, draft]
+        default: completed
+
+concurrency:
+  group: android-play
+  cancel-in-progress: false
+
+jobs:
+  build-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VITE_IMAGE_WORKER_URL: ${{ vars.VITE_IMAGE_WORKER_URL || secrets.VITE_IMAGE_WORKER_URL }}
+    steps:
+      # Elle yüklenen ilk sürümlerle (1, 2) çakışmasın diye 100'den başlar.
+      - name: Sürüm kodunu belirle
+        run: echo "VERSION_CODE=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v5
+
+      - name: Gerekli ayarları kontrol et
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in PLAY_SERVICE_ACCOUNT_JSON ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD VITE_IMAGE_WORKER_URL; do
+            if [ -z "${!name}" ]; then echo "::error::$name ayarlanmamış (bkz. android/RELEASE.md)"; missing=1; fi
+          done
+          exit $missing
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Web uygulamasını derle ve Android projesine kopyala
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: İmzalama anahtarını yaz
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/cicidolap-release.jks
+          {
+            echo "storeFile=cicidolap-release.jks"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > android/keystore.properties
+
+      - name: Release AAB derle
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease -PversionCode="$VERSION_CODE" --no-daemon
+
+      - name: Google Play'e yükle
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.cicidolap.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: ${{ inputs.track }}
+          status: ${{ inputs.status }}
+
+      - name: Özet
+        run: |
+          echo "### Yüklendi: versionCode $VERSION_CODE → ${{ inputs.track }} (${{ inputs.status }})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Anahtarı temizle
+        if: always()
+        run: rm -f android/cicidolap-release.jks android/keystore.properties

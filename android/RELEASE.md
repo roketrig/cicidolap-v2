@@ -99,7 +99,7 @@ onayı istiyor (işaretlenmeden kayıt olunamıyor).
 
 ## 8. Mağaza görselleri ve metinleri
 
-- **Uygulama ikonu** 512×512 — ✅ hazır (`public/favicon-512.png`, Android ikonları `mipmap-*`)
+- **Uygulama ikonu** 512×512 — ✅ hazır (`store/play-icon-512.png`, Android ikonları `mipmap-*`)
 - **Öne çıkan görsel (feature graphic)** 1024×500 — ✅ `store/feature-graphic-1024x500.png`
 - **Kısa/tam açıklama, kategori, URL'ler** — ✅ `store/listing-tr.md`
 - **Telefon ekran görüntüleri** en az 2 tane — ☐ uygulamayı gerçek ilanlarla doldurduktan sonra cihazdan al
@@ -127,3 +127,42 @@ onayı istiyor (işaretlenmeden kayıt olunamıyor).
 - iOS için: bkz. `ios/RELEASE.md`.
 - iyzico/hizmet bedeli entegrasyonu — ayrı konuşacağız (anlaşma
   netleşince).
+
+## 11. Otomatik yükleme (GitHub Actions → Google Play)
+
+GitHub → **Actions** → **Android → Google Play** → **Run workflow**: web derlemesi →
+imzalı AAB → Play Console'a yükleme. Kanal (internal/alpha/beta/production) ve
+durum (completed/draft) çalıştırırken seçilir. `versionCode` otomatik artar
+(100 + çalıştırma numarası), elle değiştirmen gerekmez.
+
+### Tek seferlik kurulum ☐
+
+1. **Google Cloud hizmet hesabı** — [console.cloud.google.com](https://console.cloud.google.com):
+   - Bir proje seç/oluştur → **APIs & Services → Library** → *Google Play Android Developer API* → **Enable**.
+   - **IAM & Admin → Service Accounts → Create service account** (ad: `github-play-upload`, rol verme).
+   - Hesabın **Keys** sekmesi → **Add key → Create new key → JSON** → dosya iner.
+2. **Play Console'da yetki ver** — **Kullanıcılar ve izinler → Yeni kullanıcı davet et**:
+   - E-posta: hizmet hesabının adresi (`...@...iam.gserviceaccount.com`).
+   - **Uygulama izinleri** → Cici Dolap → *Sürümleri test kanallarına yayınla* ve
+     *Sürümleri üretime yayınla...* izinlerini ver → Davet et.
+3. **GitHub Secrets** (repo → Settings → Secrets and variables → Actions → New repository secret):
+   | Ad | Değer |
+   |---|---|
+   | `PLAY_SERVICE_ACCOUNT_JSON` | İnen JSON dosyasının **tüm içeriği** |
+   | `ANDROID_KEYSTORE_BASE64` | Keystore'un base64 hâli (aşağıdaki komut panoya kopyalar) |
+   | `ANDROID_KEYSTORE_PASSWORD` | `keystore.properties` → `storePassword` |
+   | `ANDROID_KEY_ALIAS` | `keystore.properties` → `keyAlias` |
+   | `ANDROID_KEY_PASSWORD` | `keystore.properties` → `keyPassword` |
+
+   Keystore'u base64 olarak panoya kopyalamak için (PowerShell, proje klasöründe):
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("android\cicidolap-release.jks")) | Set-Clipboard
+   ```
+
+Bu değerleri bana gönderme; doğrudan GitHub'a gir.
+
+> Notlar
+> - Google Play API, uygulamaya **ilk AAB elle yüklendikten sonra** çalışır.
+> - Uygulama henüz hiç yayınlanmadıysa Play yalnızca taslak kabul edebilir:
+>   "Only releases with status draft may be created on draft app" hatası
+>   alırsan **status: draft** seç, sonra Play Console'da sürümü incele → yayınla.

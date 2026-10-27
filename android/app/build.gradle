@@ -19,7 +19,8 @@ android {
         applicationId "com.cicidolap.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
+        // CI (Play'e otomatik yükleme) -PversionCode ile her çalıştırmada artırır.
+        versionCode((project.findProperty('versionCode') ?: '3').toInteger())
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

@@ -88,7 +88,7 @@ Uygulama içinde ödeme/satın alma yoktur; ödemeler kullanıcılar arasında u
 ## Görseller
 
 - `store/feature-graphic-1024x500.png` — Play “Öne çıkan görsel”.
-- Uygulama ikonu: Play 512×512 → `public/favicon-512.png`; App Store 1024×1024 →
+- Uygulama ikonu: Play 512×512 → `store/play-icon-512.png` (köşesiz kare); App Store 1024×1024 →
   `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` (opak).
 - ☐ **Ekran görüntüleri** (Play: en az 2, telefon; App Store: 6,7" ve 6,5" için 3-10 adet):
   uygulamayı gerçek ürünlerle doldurduktan sonra cihaz/simülatörden alınmalı —
