@@ -47,3 +47,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
 }
+
+// Ana ekran: Capacitor'ın görünüm denetleyicisi + iOS'un kenardan kaydırarak
+// geri/ileri hareketi (WebView'da varsayılan kapalı). Main.storyboard bunu kullanır.
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        webView?.allowsBackForwardNavigationGestures = true
+    }
+}

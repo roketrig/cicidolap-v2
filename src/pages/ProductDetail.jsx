@@ -236,7 +236,7 @@ function ProductDetail({ user }) {
                   style={product.sold ? { opacity: 0.55 } : undefined}
                 />
               ) : (
-                <span className="display-1 opacity-25">📸</span>
+                <span className="pcard-placeholder pdp-placeholder">🧸</span>
               )}
               {images.length > 1 && (
                 <>
@@ -260,7 +260,7 @@ function ProductDetail({ user }) {
                 </>
               )}
               <div className="pdp-actions">
-                {isBuyer && (
+                {!isOwner && (
                   <button
                     type="button"
                     className={`pdp-icon-btn favorite-inline ${favoriteIds.has(product.id) ? 'is-active' : ''}`}

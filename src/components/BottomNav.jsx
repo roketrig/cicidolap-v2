@@ -2,12 +2,14 @@
 //
 // Mobil (web ≤ 991px + mağaza uygulaması) alt gezinme çubuğu — Dolap/Letgo/
 // Vinted gibi alışveriş uygulamalarındaki standart düzen. Tam ekran
-// akışlarda (sohbet, ilan formu, giriş) gizli.
+// akışlarda (sohbet, ilan formu) gizli. Giriş/kayıt ekranlarında görünür:
+// misafir "Mesajlar"/"Profil"e dokununca girişe düşüyor ve menü gizlenirse
+// uygulamada geri dönecek yer kalmıyordu.
 import React from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import Icon from './Icon'
 
-const HIDDEN_ON = [/^\/messages\/.+/, /^\/add-product/, /^\/edit-product/, /^\/login/, /^\/register/, /^\/forgot-password/]
+const HIDDEN_ON = [/^\/messages\/.+/, /^\/add-product/, /^\/edit-product/]
 
 export default function BottomNav({ user, unreadCount }) {
   const { pathname } = useLocation()
@@ -34,7 +36,7 @@ export default function BottomNav({ user, unreadCount }) {
         <span className="bnav-label">İlan Ver</span>
       </Link>
       {item(
-        user ? '/messages' : '/login',
+        '/messages', // misafire "Giriş yapmalısın" ekranını gösterir
         'chat',
         'Mesajlar',
         unreadCount > 0 ? <span className="bnav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span> : null

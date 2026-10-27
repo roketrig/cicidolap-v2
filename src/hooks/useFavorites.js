@@ -22,9 +22,11 @@ import {
   deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore'
+import { useNavigate } from 'react-router-dom'
 import { db } from '../firebase'
 
 export function useFavorites(user) {
+  const navigate = useNavigate()
   const [favoriteIds, setFavoriteIds] = useState(() => new Set())
   // favoriteIds'in güncel kopyasını ref'te tutuyoruz ki toggleFavorite'in
   // kimliği değişmesin (ProductCard React.memo ile sarılı — her favori
@@ -60,7 +62,8 @@ export function useFavorites(user) {
   const toggleFavorite = useCallback(
     async (productId) => {
       if (!user) {
-        alert('Favorilere eklemek için lütfen giriş yapın!')
+        // Uyarı yerine doğrudan girişe; giriş sonrası bu sayfaya dönülür.
+        navigate('/login', { state: { from: window.location.pathname + window.location.search } })
         return
       }
 
@@ -97,7 +100,7 @@ export function useFavorites(user) {
         alert('Favori kaydedilemedi. Lütfen tekrar dene.')
       }
     },
-    [user]
+    [user, navigate]
   )
 
   return { favoriteIds, toggleFavorite }

@@ -15,6 +15,18 @@ export function nameOrEmail(name, email) {
   return (name && name.trim()) || emailToName(email) || 'Kullanıcı'
 }
 
+// Arama metni üst sınırı — uzun metin başlık/etiketleri taşırıyordu.
+export const SEARCH_MAX_LENGTH = 50
+
+// Basit e-posta kontrolü. iOS WebView tarayıcının "bu alanı doldurun"
+// balonlarını göstermediği için formlar boş/hatalı alanı kendisi bildiriyor.
+export function emailError(email) {
+  const v = email.trim()
+  if (!v) return 'E-posta adresini yaz.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Geçerli bir e-posta adresi yaz.'
+  return ''
+}
+
 // Firebase Auth hata kodlarını okunur Türkçe mesaja çevirir.
 export function authErrorMessage(err) {
   const code = err?.code || ''

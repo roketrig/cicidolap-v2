@@ -24,7 +24,10 @@ const Profile = lazy(() => import('./pages/Profile'))
 const EditProduct = lazy(() => import('./pages/EditProduct'))
 const Messages = lazy(() => import('./pages/Messages'))
 const Conversation = lazy(() => import('./pages/Conversation'))
-const Products = lazy(() => import('./pages/Products'))
+// En sık açılan ekran: açılıştan kısa süre sonra arka planda önceden
+// yükleniyor ki ana sayfadaki çip/kategori dokunuşları beklemeden geçsin.
+const loadProducts = () => import('./pages/Products')
+const Products = lazy(loadProducts)
 const Favorites = lazy(() => import('./pages/Favorites'))
 const SellerProfile = lazy(() => import('./pages/SellerProfile'))
 const BlockedUsers = lazy(() => import('./pages/BlockedUsers'))
@@ -131,6 +134,10 @@ function Banners({ user }) {
 
 function Shell({ user }) {
   const unreadCount = useUnreadCount(user)
+  useEffect(() => {
+    const t = setTimeout(loadProducts, 1500)
+    return () => clearTimeout(t)
+  }, [])
   return (
     <div className="app-shell d-flex flex-column min-vh-100">
       <NativeBridge />

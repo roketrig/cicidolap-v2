@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth'
 import { auth } from '../firebase'
-import { authErrorMessage } from '../utils'
+import { authErrorMessage, emailError } from '../utils'
 
 function Register() {
   const [name, setName] = useState('')
@@ -22,6 +22,10 @@ function Register() {
       setError('Lütfen adını yaz (en az 2 karakter).')
       return
     }
+    if (emailError(email)) {
+      setError(emailError(email))
+      return
+    }
     if (password !== confirmPassword) {
       setError('Şifreler eşleşmiyor!')
       return
@@ -38,7 +42,7 @@ function Register() {
     setLoading(true)
 
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password)
       await updateProfile(cred.user, { displayName: name.trim() })
       // Doğrulama e-postası — hesap yine de hemen kullanılabilir, bu
       // sadece güven/spam-azaltma amaçlı, gönderilemezse akışı bozmasın.
@@ -71,7 +75,7 @@ function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="mb-3">
             <label className="form-label fw-semibold">Adın</label>
             <input

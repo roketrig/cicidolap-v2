@@ -1,9 +1,9 @@
 // src/pages/Login.jsx
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase'
-import { authErrorMessage } from '../utils'
+import { authErrorMessage, emailError } from '../utils'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -11,15 +11,23 @@ function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+  // Girişe başka bir sayfadan yönlendirildiyse (ör. favori kalbi) oraya dön.
+  const from = location.state?.from || '/'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    const invalid = emailError(email) || (!password ? 'Şifreni yaz.' : '')
+    if (invalid) {
+      setError(invalid)
+      return
+    }
     setLoading(true)
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
-      navigate('/')
+      await signInWithEmailAndPassword(auth, email.trim(), password)
+      navigate(from, { replace: true })
     } catch (err) {
       console.error('Giriş hatası:', err)
       setError(authErrorMessage(err))
@@ -40,7 +48,7 @@ function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="mb-3">
             <label className="form-label fw-semibold">E-posta</label>
             <input

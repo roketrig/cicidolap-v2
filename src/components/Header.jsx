@@ -8,7 +8,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { ADMIN_EMAIL } from '../constants'
-import { displayName } from '../utils'
+import { displayName, SEARCH_MAX_LENGTH } from '../utils'
 import logo from '../assets/cicidolap-logo.png'
 import Icon from './Icon'
 import CategoryNav from './CategoryNav'
@@ -21,7 +21,7 @@ export default function Header({ user, unreadCount }) {
   // /products?q=... açıkken arama kutusu o değeri göstersin.
   useEffect(() => {
     if (location.pathname === '/products') {
-      setTerm(new URLSearchParams(location.search).get('q') || '')
+      setTerm((new URLSearchParams(location.search).get('q') || '').slice(0, SEARCH_MAX_LENGTH))
     }
   }, [location.pathname, location.search])
 
@@ -49,6 +49,7 @@ export default function Header({ user, unreadCount }) {
         onChange={(e) => setTerm(e.target.value)}
         placeholder="Tulum, bebek arabası, oyuncak ara…"
         aria-label="Ürün ara"
+        maxLength={SEARCH_MAX_LENGTH}
         enterKeyHint="search"
       />
       <button type="submit" className="header-search-btn">Ara</button>

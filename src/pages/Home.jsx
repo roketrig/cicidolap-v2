@@ -15,7 +15,7 @@ import FloatingBalloons from '../components/FloatingBalloons'
 import Icon from '../components/Icon'
 import { useFavorites } from '../hooks/useFavorites'
 import { useSafety } from '../context/SafetyContext'
-import { displayName } from '../utils'
+import { displayName, SEARCH_MAX_LENGTH } from '../utils'
 
 const PAGE_SIZE = 24
 
@@ -122,6 +122,7 @@ function Home({ user }) {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 aria-label="Ürün ara"
+                maxLength={SEARCH_MAX_LENGTH}
               />
             </div>
             <div className="search-sep" />

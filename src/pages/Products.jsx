@@ -11,7 +11,7 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '../firebase'
 import { TURKISH_PROVINCES } from '../data/turkishProvinces'
 import { CATEGORIES, AGE_GROUPS, categoryLabel, subcategoryLabel } from '../data/categories'
-import { CONDITION_LABELS } from '../utils'
+import { CONDITION_LABELS, SEARCH_MAX_LENGTH } from '../utils'
 import ProductCard from '../components/ProductCard'
 import Icon from '../components/Icon'
 import { useFavorites } from '../hooks/useFavorites'
@@ -24,8 +24,9 @@ const FILTERED_FETCH = 300
 
 const SORTS = [
   { id: 'new', label: 'En yeni' },
-  { id: 'price-asc', label: 'Fiyat: düşükten yükseğe' },
-  { id: 'price-desc', label: 'Fiyat: yüksekten düşüğe' },
+  { id: 'old', label: 'En eski' },
+  { id: 'price-asc', label: 'En düşük fiyat' },
+  { id: 'price-desc', label: 'En yüksek fiyat' },
 ]
 
 const norm = (s) => (s || '').toLocaleLowerCase('tr')
@@ -42,7 +43,7 @@ function Products({ user }) {
 
   const category = params.get('category') || 'all'
   const sub = params.get('sub') || 'all'
-  const q = params.get('q') || ''
+  const q = (params.get('q') || '').slice(0, SEARCH_MAX_LENGTH)
   const province = params.get('il') || 'all'
   const age = params.get('age') || 'all'
   const minPrice = params.get('min') || ''
@@ -67,7 +68,10 @@ function Products({ user }) {
     min !== null || max !== null || cond !== 'all' || freeOnly
   )
 
-  const fetchSize = hasActiveFilters ? FILTERED_FETCH : pageSize
+  // "En yeni" dışındaki sıralamalar da tüm partiyi görmeli (yoksa yalnızca
+  // son 24 ilan kendi içinde sıralanırdı).
+  const fetchAll = hasActiveFilters || sort !== 'new'
+  const fetchSize = fetchAll ? FILTERED_FETCH : pageSize
 
   useEffect(() => {
     let cancelled = false
@@ -107,8 +111,8 @@ function Products({ user }) {
       if (province !== 'all' && p.province !== province) return false
       if (cond !== 'all' && p.condition !== cond) return false
       if (freeOnly && Number(p.price) !== 0) return false
-      if (min !== null && p.price < min) return false
-      if (max !== null && p.price > max) return false
+      if (min !== null && Number(p.price) < min) return false
+      if (max !== null && Number(p.price) > max) return false
       if (needle) {
         const hay = norm(
           [p.title, p.brand, p.description, categoryLabel(p.category), subcategoryLabel(p.category, p.subcategory)].join(' ')
@@ -117,8 +121,10 @@ function Products({ user }) {
       }
       return true
     })
-    if (sort === 'price-asc') list.sort((a, b) => a.price - b.price)
-    else if (sort === 'price-desc') list.sort((a, b) => b.price - a.price)
+    // Sunucudan en yeniden eskiye geliyor.
+    if (sort === 'old') list.reverse()
+    else if (sort === 'price-asc') list.sort((a, b) => Number(a.price) - Number(b.price))
+    else if (sort === 'price-desc') list.sort((a, b) => Number(b.price) - Number(a.price))
     return list
   }, [products, isBlocked, q, category, sub, age, province, cond, freeOnly, min, max, sort])
 
@@ -140,12 +146,12 @@ function Products({ user }) {
   return (
     <div className="container py-3 py-md-4">
       <div className="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-        <div>
-          <h1 className="h3 fw-bold text-pink-600 mb-0">
+        <div className="products-head-text">
+          <h1 className="h3 fw-bold text-pink-600 mb-0 products-title">
             {q ? `“${q}” için sonuçlar` : activeCategory ? `${activeCategory.emoji} ${activeCategory.label}` : 'Tüm Ürünler'}
           </h1>
           <span className="text-muted small">
-            {loading && products.length === 0 ? 'Yükleniyor…' : `${filteredProducts.length}${hasMore && !hasActiveFilters ? '+' : ''} ürün`}
+            {loading && products.length === 0 ? 'Yükleniyor…' : `${filteredProducts.length}${hasMore && !fetchAll ? '+' : ''} ürün`}
           </span>
         </div>
         <div className="d-flex gap-2 align-items-center">
@@ -174,7 +180,7 @@ function Products({ user }) {
         <div className="chip-row mb-3">
           {chips.map((c) => (
             <button key={c.label} type="button" className="chip chip--active" onClick={() => setParam(c.clear)}>
-              {c.label} <Icon name="close" size={12} strokeWidth={2.6} />
+              <span className="chip-label">{c.label}</span> <Icon name="close" size={12} strokeWidth={2.6} />
             </button>
           ))}
           <button type="button" className="chip chip--ghost" onClick={clearFilters}>Tümünü temizle</button>
@@ -337,7 +343,7 @@ function Products({ user }) {
                   </div>
                 ))}
               </div>
-              {hasMore && !hasActiveFilters && (
+              {hasMore && !fetchAll && (
                 <div className="text-center mt-4">
                   <button
                     className="btn btn-outline-pink rounded-pill px-4"

@@ -63,7 +63,7 @@ function Messages({ user }) {
         <div className="display-1 mb-3">🔒</div>
         <h2>Giriş Yapmalısın</h2>
         <p className="text-muted">Mesajlarını görmek için lütfen giriş yap.</p>
-        <Link to="/login" className="btn btn-pink rounded-pill px-4">Giriş Yap</Link>
+        <Link to="/login" state={{ from: '/messages' }} className="btn btn-pink rounded-pill px-4">Giriş Yap</Link>
       </div>
     )
   }

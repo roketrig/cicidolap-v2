@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../firebase'
+import { emailError } from '../utils'
 
 function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -14,10 +15,14 @@ function ForgotPassword() {
     e.preventDefault()
     setError('')
     setSuccess('')
+    if (emailError(email)) {
+      setError(emailError(email))
+      return
+    }
     setLoading(true)
 
     try {
-      await sendPasswordResetEmail(auth, email)
+      await sendPasswordResetEmail(auth, email.trim())
       setSuccess('✅ Sıfırlama linki e-postana gönderildi! Gelen kutunu (ve spam klasörünü) kontrol et.')
     } catch (err) {
       // Firebase, güvenlik gereği "bu e-posta kayıtlı değil" gibi bir bilgi
@@ -50,7 +55,7 @@ function ForgotPassword() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="mb-3">
             <label className="form-label fw-semibold">E-posta</label>
             <input
