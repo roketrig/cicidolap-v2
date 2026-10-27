@@ -22,6 +22,10 @@ on:
         type: choice
         options: [completed, draft]
         default: completed
+      review_in_console:
+        description: "İncelemeye gönderimi Play Console'dan elle yap (Play'de bekleyen başka değişiklik varsa gerekli)"
+        type: boolean
+        default: true
 
 concurrency:
   group: android-play
@@ -99,10 +103,14 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track }}
           status: ${{ inputs.status }}
+          changesNotSentForReview: ${{ inputs.review_in_console }}
 
       - name: Özet
         run: |
           echo "### Yüklendi: versionCode $VERSION_CODE → ${{ inputs.track }} (${{ inputs.status }})" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.review_in_console }}" = "true" ]; then
+            echo "Play Console → Yayınlama özeti → **Değişiklikleri incelemeye gönder** ile tamamla." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Anahtarı temizle
         if: always()
