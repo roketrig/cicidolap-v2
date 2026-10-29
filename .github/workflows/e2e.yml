@@ -1,0 +1,38 @@
+# Uçtan uca test: ilan verme/düzenleme akışı (e2e/). Her push'ta çalışır;
+# mağaza workflow'ları da build'den önce bunu çağırır — test kırmızıysa
+# TestFlight / Google Play'e yükleme yapılmaz.
+name: E2E testleri
+
+on:
+  push:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      # Firestore emülatörü Java ister
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-sonuclari
+          path: test-results/
+          retention-days: 7

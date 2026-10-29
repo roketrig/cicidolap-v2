@@ -26,3 +26,12 @@ firebase-debug.log
 *.njsproj
 *.sln
 *.sw?
+
+# Uçtan uca test çıktıları
+/test-results/
+/playwright-report/
+
+# Firebase emülatör günlükleri
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

@@ -38,4 +38,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- "Fotoğraf çek": Android 11+ kamera uygulamasını ancak burada
+         belirtilirse görebiliyor; yoksa Capacitor galeriye düşüyordu. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
 </manifest>

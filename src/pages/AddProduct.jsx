@@ -1,5 +1,5 @@
 // src/pages/AddProduct.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -9,6 +9,7 @@ import { CATEGORIES, AGE_GROUPS, subcategoriesFor } from '../data/categories'
 import { CONTACT_PREF, KVKK_CONSENT_LABEL, saveListingPhone } from '../contact'
 import ImagePicker from '../components/ImagePicker'
 import { useSafety } from '../context/SafetyContext'
+import { parsePrice, validateListing, showFieldError, clearFieldError } from '../listingForm'
 
 const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
 const MAX_PHOTOS = 5
@@ -45,10 +46,30 @@ function AddProduct() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [toast, setToast] = useState('')
+  const formRef = useRef(null)
+  const errorRef = useRef(null)
+  const toastTimer = useRef(null)
+
+  // Hata kutusu formun üstünde; kullanıcı en alttaki düğmeye bastığı için
+  // görsün diye oraya kaydır.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [error])
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
+
+  // Eksik/hatalı alan: alana git, kırmızı işaretle, mesajı ekranın altında göster.
+  const fieldError = (field, message) => {
+    showFieldError(formRef.current, field)
+    setToast(message)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 4000)
+  }
 
   const subcategoryOptions = subcategoriesFor(formData.category)
 
   const handleChange = (e) => {
+    clearFieldError(e)
     const { name, value } = e.target
     setFormData((prev) => {
       // Kategori değişince eski kategorinin alt kategorisi anlamsız kalır.
@@ -74,16 +95,21 @@ function AddProduct() {
       setError('Lütfen en az bir fotoğraf ekle — fotoğraflı ilanlar çok daha hızlı ilgi görür.')
       return
     }
+    const invalid = validateListing(formData, { hasSubcategories: subcategoryOptions.length > 0 })
+    if (invalid) {
+      fieldError(invalid.field, invalid.message)
+      return
+    }
 
     const wantsPhone = formData.contactPref === CONTACT_PREF.PHONE
     const normalizedPhone = formData.phone.replace(/\s+/g, '')
     if (wantsPhone) {
       if (!PHONE_REGEX.test(normalizedPhone)) {
-        setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
+        fieldError('phone', 'Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
         return
       }
       if (!phoneConsent) {
-        setError('Telefon numaranın gösterilmesi için KVKK açık rıza onayını işaretlemelisin.')
+        fieldError('phoneConsent', 'Telefon numaranın gösterilmesi için KVKK açık rıza onayını işaretlemelisin.')
         return
       }
     }
@@ -108,7 +134,7 @@ function AddProduct() {
         size: formData.size.trim(),
         // "city": il/ilçeyi birleştirip eski ekranlarla uyumlu kalıyor.
         city: `${formData.province} / ${formData.district}`,
-        price: parseFloat(formData.price) || 0,
+        price: parsePrice(formData.price),
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
         userName: auth.currentUser.displayName || '',
@@ -154,7 +180,7 @@ function AddProduct() {
             </div>
 
             {error && (
-              <div className="alert alert-danger alert-dismissible fade show">
+              <div ref={errorRef} className="alert alert-danger alert-dismissible fade show">
                 ⚠️ {error}
                 <button type="button" className="btn-close" onClick={() => setError('')}></button>
               </div>
@@ -166,7 +192,7 @@ function AddProduct() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form ref={formRef} onSubmit={handleSubmit} noValidate>
               <div className="mb-3">
                 <label className="form-label fw-semibold">Fotoğraflar <span className="text-danger">*</span></label>
                 <ImagePicker items={photos} onChange={setPhotos} onError={setError} max={MAX_PHOTOS} />
@@ -233,7 +259,7 @@ function AddProduct() {
               <div className="row g-3">
                 <div className="col-md-6">
                   <label className="form-label fw-semibold">Fiyat (TL) <span className="text-danger">*</span></label>
-                  <input type="number" name="price" value={formData.price} onChange={handleChange} placeholder="0" className="form-control" required min="0" step="1" inputMode="numeric" />
+                  <input type="text" name="price" value={formData.price} onChange={handleChange} placeholder="Örn: 250" className="form-control" required inputMode="decimal" maxLength={12} />
                   <small className="text-muted">Bağış yapacaksan 0 yaz</small>
                 </div>
                 <div className="col-md-6">
@@ -302,7 +328,7 @@ function AddProduct() {
                   <label className="form-label fw-semibold">Telefon <span className="text-danger">*</span></label>
                   <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="05xx xxx xx xx" className="form-control" />
                   <div className="form-check mt-3">
-                    <input className="form-check-input" type="checkbox" id="phoneConsent" checked={phoneConsent} onChange={(e) => setPhoneConsent(e.target.checked)} />
+                    <input className="form-check-input" type="checkbox" id="phoneConsent" name="phoneConsent" checked={phoneConsent} onChange={(e) => { clearFieldError(e); setPhoneConsent(e.target.checked) }} />
                     <label className="form-check-label small" htmlFor="phoneConsent">
                       {KVKK_CONSENT_LABEL}{' '}
                       <Link to="/gizlilik" target="_blank" className="text-pink-600">KVKK Aydınlatma Metni</Link>
@@ -328,6 +354,7 @@ function AddProduct() {
           </div>
         </div>
       </div>
+      {toast && <div className="cd-toast" role="alert">{toast}</div>}
     </div>
   )
 }

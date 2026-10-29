@@ -1,5 +1,5 @@
 // src/pages/EditProduct.jsx
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { doc, getDoc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -10,6 +10,7 @@ import { uploadPickedImages, deleteProductImages, pickerItemsFromUrls } from '..
 import ImagePicker from '../components/ImagePicker'
 import { productImages } from '../utils'
 import { CONTACT_PREF, KVKK_CONSENT_LABEL, saveListingPhone, removeListingPhone, fetchListingPhone } from '../contact'
+import { parsePrice, validateListing, showFieldError, clearFieldError } from '../listingForm'
 
 const PHONE_REGEX = /^0?5\d{9}$/ // 05xx xxx xx xx (boşluklar temizlendikten sonra)
 const MAX_PHOTOS = 5
@@ -48,6 +49,26 @@ function EditProduct() {
     { value: 'used', label: 'Kullanılmış' },
     { value: 'worn', label: 'Yıpranmış' }
   ]
+
+  const [toast, setToast] = useState('')
+  const formRef = useRef(null)
+  const errorRef = useRef(null)
+  const toastTimer = useRef(null)
+
+  // Hata kutusu formun üstünde; kullanıcı en alttaki düğmeye bastığı için
+  // görsün diye oraya kaydır.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [error])
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
+
+  // Eksik/hatalı alan: alana git, kırmızı işaretle, mesajı ekranın altında göster.
+  const fieldError = (field, message) => {
+    showFieldError(formRef.current, field)
+    setToast(message)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 4000)
+  }
 
   const subcategoryOptions = subcategoriesFor(formData.category)
 
@@ -151,6 +172,7 @@ function EditProduct() {
   }
 
   const handleChange = (e) => {
+    clearFieldError(e)
     const { name, value } = e.target
     setFormData(prev => {
       if (name === 'category') {
@@ -165,22 +187,27 @@ function EditProduct() {
     setError('')
     setSuccess('')
 
+    if (photos.length === 0) {
+      setError('En az bir fotoğraf olmalı.')
+      return
+    }
+    const invalid = validateListing(formData, { hasSubcategories: subcategoryOptions.length > 0 })
+    if (invalid) {
+      fieldError(invalid.field, invalid.message)
+      return
+    }
+
     const wantsPhone = formData.contactPref === CONTACT_PREF.PHONE
     const normalizedPhone = formData.phone.replace(/\s+/g, '')
     if (wantsPhone) {
       if (!PHONE_REGEX.test(normalizedPhone)) {
-        setError('Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
+        fieldError('phone', 'Lütfen geçerli bir cep telefonu numarası gir (Örn: 05xx xxx xx xx).')
         return
       }
       if (!phoneConsent) {
-        setError('Telefon numaranın gösterilmesi için KVKK açık rıza onayını işaretlemelisin.')
+        fieldError('phoneConsent', 'Telefon numaranın gösterilmesi için KVKK açık rıza onayını işaretlemelisin.')
         return
       }
-    }
-
-    if (photos.length === 0) {
-      setError('En az bir fotoğraf olmalı.')
-      return
     }
 
     setSubmitting(true)
@@ -200,7 +227,7 @@ function EditProduct() {
         imageUrls: result.urls,
         imageUrl: result.urls[0] || '',
         city: `${formData.province} / ${formData.district}`,
-        price: parseFloat(formData.price) || 0,
+        price: parsePrice(formData.price),
         // Eski ilanlarda herkese açık dokümanda kalmış olabilecek telefonu
         // KVKK gereği temizliyoruz (numara artık listingContacts'te).
         phone: deleteField(),
@@ -276,13 +303,13 @@ function EditProduct() {
             )}
 
             {error && (
-              <div className="alert alert-danger alert-dismissible fade show">
+              <div ref={errorRef} className="alert alert-danger alert-dismissible fade show">
                 ⚠️ {error}
                 <button type="button" className="btn-close" onClick={() => setError('')}></button>
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form ref={formRef} onSubmit={handleSubmit} noValidate>
               <div className="mb-3">
                 <label className="form-label fw-semibold">Fotoğraflar <span className="text-danger">*</span></label>
                 <ImagePicker items={photos} onChange={setPhotos} onError={setError} max={MAX_PHOTOS} />
@@ -371,15 +398,15 @@ function EditProduct() {
                 <div className="col-md-6">
                   <label className="form-label fw-semibold">Fiyat (TL) <span className="text-danger">*</span></label>
                   <input
-                    type="number"
+                    type="text"
                     name="price"
                     value={formData.price}
                     onChange={handleChange}
-                    placeholder="0.00"
+                    placeholder="Örn: 250"
                     className="form-control"
                     required
-                    min="0"
-                    step="0.01"
+                    inputMode="decimal"
+                    maxLength={12}
                   />
                   <small className="text-muted">Bağış yapacaksan 0 yaz</small>
                 </div>
@@ -493,8 +520,9 @@ function EditProduct() {
                       className="form-check-input"
                       type="checkbox"
                       id="phoneConsent"
+                      name="phoneConsent"
                       checked={phoneConsent}
-                      onChange={(e) => setPhoneConsent(e.target.checked)}
+                      onChange={(e) => { clearFieldError(e); setPhoneConsent(e.target.checked) }}
                     />
                     <label className="form-check-label small" htmlFor="phoneConsent">
                       {KVKK_CONSENT_LABEL}{' '}
@@ -529,6 +557,7 @@ function EditProduct() {
           </div>
         </div>
       </div>
+      {toast && <div className="cd-toast" role="alert">{toast}</div>}
     </div>
   )
 }

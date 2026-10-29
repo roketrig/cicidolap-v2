@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
+import { getAuth, initializeAuth, indexedDBLocalPersistence, connectAuthEmulator } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -28,3 +28,10 @@ export const auth = Capacitor.isNativePlatform()
   ? initializeAuth(app, { persistence: indexedDBLocalPersistence })
   : getAuth(app);
 export const db = getFirestore(app);
+
+// Uçtan uca testler (npm run test:e2e) gerçek veritabanı yerine yerel
+// Firebase emülatörlerine bağlanır — bkz. e2e/ ve firebase.json.
+if (import.meta.env.VITE_FIREBASE_EMULATORS === "1") {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}

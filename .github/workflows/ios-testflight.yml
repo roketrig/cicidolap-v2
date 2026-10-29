@@ -17,7 +17,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # İlan verme akışı testten geçmeden mağazaya build gönderilmez.
+  test:
+    uses: ./.github/workflows/e2e.yml
+
   build-upload:
+    needs: test
     runs-on: macos-15
     timeout-minutes: 45
     env:

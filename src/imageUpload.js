@@ -18,19 +18,15 @@ export async function compressImage(file, { maxDimension = 1600, quality = 0.82 
   if (!file || !file.type?.startsWith('image/') || file.type === 'image/gif') {
     return file
   }
+  // Büyük kamera fotoğraflarını base64'e çevirmek telefonda çok bellek
+  // harcıyordu; doğrudan blob adresinden okunuyor.
+  const objectUrl = URL.createObjectURL(file)
   try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-
     const img = await new Promise((resolve, reject) => {
       const image = new Image()
       image.onload = () => resolve(image)
       image.onerror = reject
-      image.src = dataUrl
+      image.src = objectUrl
     })
 
     const scale = Math.min(1, maxDimension / Math.max(img.width, img.height))
@@ -52,6 +48,8 @@ export async function compressImage(file, { maxDimension = 1600, quality = 0.82 
   } catch (err) {
     console.warn('Görsel sıkıştırılamadı, orijinali yükleniyor:', err)
     return file
+  } finally {
+    URL.revokeObjectURL(objectUrl)
   }
 }
 
@@ -68,11 +66,17 @@ export async function uploadProductImage(file, idToken) {
   const formData = new FormData()
   formData.append('image', optimized)
 
-  const response = await fetch(`${IMAGE_WORKER_URL}/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${idToken}` },
-    body: formData,
-  })
+  let response
+  try {
+    response = await fetch(`${IMAGE_WORKER_URL}/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+      body: formData,
+    })
+  } catch (err) {
+    console.error('Görsel yükleme isteği başarısız:', err)
+    throw new Error('Fotoğraf yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.', { cause: err })
+  }
 
   if (!response.ok) {
     let errorMessage = 'Resim yüklenirken bir hata oluştu.'

@@ -5,13 +5,22 @@
 //             { key, file, preview } -> yeni seçilmiş, henüz yüklenmemiş
 import React, { useEffect, useRef } from 'react'
 import Icon from './Icon'
+import { platform } from '../native'
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB (Worker ile aynı sınır)
+// Seçilen dosyanın sınırı. Yüklemeden önce ~1600px JPEG'e küçültülüyor
+// (bkz. imageUpload.js), Worker'ın 5MB sınırı küçültülmüş dosyaya uygulanır;
+// telefon kameraları 5MB'ı rahat aştığı için burada daha geniş tutuluyor.
+const MAX_IMAGE_SIZE = 25 * 1024 * 1024
+// Android uygulamasının fotoğraf seçicisinde kamera seçeneği yok; ayrı
+// "Fotoğraf çek" düğmesi gösteriliyor. (iOS seçicisinde ve mobil tarayıcıda
+// kamera zaten seçeneklerden biri.)
+const SHOW_CAMERA = platform() === 'android'
 let keyCounter = 0
 const nextKey = () => `img-${Date.now()}-${keyCounter++}`
 
 export default function ImagePicker({ items, onChange, onError, max = 5 }) {
   const inputRef = useRef(null)
+  const cameraRef = useRef(null)
   const previewsRef = useRef(new Set())
 
   // Yalnızca unmount'ta kalan blob önizlemelerini serbest bırak.
@@ -32,7 +41,7 @@ export default function ImagePicker({ items, onChange, onError, max = 5 }) {
         continue
       }
       if (file.size > MAX_IMAGE_SIZE) {
-        onError?.(`"${file.name}" 5MB'dan büyük, atlandı.`)
+        onError?.(`"${file.name}" 25MB'dan büyük, atlandı.`)
         continue
       }
       const preview = URL.createObjectURL(file)
@@ -77,15 +86,24 @@ export default function ImagePicker({ items, onChange, onError, max = 5 }) {
         ))}
         {items.length < max && (
           <button type="button" className="imgpick-add" onClick={() => inputRef.current?.click()}>
-            <Icon name="camera" size={26} />
-            <span>Fotoğraf ekle</span>
+            <Icon name={SHOW_CAMERA ? 'image' : 'camera'} size={26} />
+            <span>{SHOW_CAMERA ? 'Galeriden seç' : 'Fotoğraf ekle'}</span>
             <small>{items.length}/{max}</small>
+          </button>
+        )}
+        {SHOW_CAMERA && items.length < max && (
+          <button type="button" className="imgpick-add" onClick={() => cameraRef.current?.click()}>
+            <Icon name="camera" size={26} />
+            <span>Fotoğraf çek</span>
           </button>
         )}
       </div>
       <input ref={inputRef} type="file" accept="image/*" multiple onChange={handleFiles} className="d-none" />
+      {SHOW_CAMERA && (
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFiles} className="d-none" />
+      )}
       <small className="text-muted d-block mt-2">
-        JPG, PNG, WebP (her biri en fazla 5MB). İlk fotoğraf kapak olarak görünür; net ve aydınlık fotoğraflar daha hızlı ilgi görür.
+        JPG, PNG, WebP. İlk fotoğraf kapak olarak görünür; net ve aydınlık fotoğraflar daha hızlı ilgi görür.
       </small>
     </div>
   )
