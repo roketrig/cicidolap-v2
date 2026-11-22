@@ -1,0 +1,15 @@
+# Kişisel ve hesap gerektiren sayfalar arama sonuçlarına girmesin.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /profile
+Disallow: /messages
+Disallow: /favorites
+Disallow: /engellenenler
+Disallow: /add-product
+Disallow: /edit-product/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+
+Sitemap: https://cicidolap.com.tr/sitemap.xml
